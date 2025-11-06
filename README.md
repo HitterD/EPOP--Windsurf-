@@ -256,7 +256,7 @@ This project is proprietary and confidential.
 
 ## Support
 
-For support, email support@epop.com or open an issue in the repository.
+For support, email bagastyo6@gmail.com or open an issue in the repository.
 
 ---
 
