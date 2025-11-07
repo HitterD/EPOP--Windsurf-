@@ -20,6 +20,14 @@ data:
   MINIO_ENDPOINT: "epop-minio"
   MINIO_PORT: "9000"
   MINIO_USE_SSL: "false"
+  # Antivirus (optional)
+  CLAMAV_ENABLED: "false"
+  CLAMAV_HOST: "clamav"
+  CLAMAV_PORT: "3310"
+  # OpenTelemetry (optional)
+  OTEL_ENABLED: "false"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318"
+  OTEL_SERVICE_NAME: "epop-backend"
 ---
 apiVersion: apps/v1
 kind: Deployment

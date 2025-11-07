@@ -1,10 +1,12 @@
 /**
  * FE-Res-2: Enhanced Error Boundary with retry policies
+ * Wave-3: FE-obs-errors - Integrated with error tracker
  * Catches rendering errors and provides recovery options
  */
 
 import React from "react";
 import { AlertTriangle, RefreshCw, X } from "lucide-react";
+import { captureError } from "@/lib/monitoring/error-tracker";
 
 type Props = { 
   fallback?: React.ReactNode
@@ -34,16 +36,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
     // Call custom error handler
     this.props.onError?.(error, errorInfo)
 
-    // Report to error tracking service (FE-Obs-2)
-    if (typeof window !== 'undefined' && (window as any).__reportError) {
-      (window as any).__reportError({
-        name: this.props.name || 'ErrorBoundary',
-        error: error.message,
-        stack: error.stack,
+    // Report to error tracking service (Wave-3: FE-obs-errors)
+    captureError(error, {
+      level: 'error',
+      context: {
+        component: this.props.name || 'ErrorBoundary',
         componentStack: errorInfo.componentStack,
-        timestamp: new Date().toISOString(),
-      })
-    }
+        retryCount: this.state.retryCount,
+      }
+    })
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {

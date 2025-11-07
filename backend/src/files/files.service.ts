@@ -11,7 +11,7 @@ import { decodeCursor, encodeCursor } from '../common/pagination/cursor'
 import type { Response } from 'express'
 import { Readable } from 'node:stream'
 import { Queue } from 'bullmq'
-import { SEARCH_QUEUE } from '../queues/queues.module'
+import { SEARCH_QUEUE, FILESCAN_QUEUE } from '../queues/queues.module'
 
 @Injectable()
 export class FilesService {
@@ -25,6 +25,7 @@ export class FilesService {
     @InjectRepository(FileLink) private readonly links: Repository<FileLink>,
     private readonly config: ConfigService,
     @Inject(SEARCH_QUEUE) private readonly searchQueue: Queue,
+    @Inject(FILESCAN_QUEUE) private readonly fileScanQueue: Queue,
   ) {
     const endpoint = this.config.get<string>('MINIO_ENDPOINT') || 'localhost'
     const port = this.config.get<number>('MINIO_PORT') || 9000
@@ -78,6 +79,16 @@ export class FilesService {
   async attach(fileId: string, dto: { refTable: 'messages'|'mail_messages'|'tasks'; refId: string; filename?: string; mime?: string; size?: number }) {
     const file = await this.files.findOne({ where: { id: fileId } })
     if (!file) throw new NotFoundException('File not found')
+    // MIME hardening & size limits
+    const maxBytes = 50 * 1024 * 1024 // keep consistent with presign
+    const size = dto.size ?? (file.size ? Number(file.size) : undefined)
+    if (size && size > maxBytes) throw new ForbiddenException('File too large')
+    const allowed = new Set<string>([
+      'image/png','image/jpeg','image/gif','image/webp','image/svg+xml',
+      'application/pdf','text/plain','text/markdown',
+      'application/json','application/zip','application/x-zip-compressed',
+    ])
+    if (dto.mime && !allowed.has(dto.mime)) throw new ForbiddenException('Unsupported file type')
     if (dto.filename !== undefined) file.filename = dto.filename
     if (dto.mime !== undefined) file.mime = dto.mime ?? null
     if (dto.size !== undefined) file.size = String(dto.size)
@@ -94,6 +105,12 @@ export class FilesService {
           await this.files.save(file)
         }
       }
+    } catch {}
+    // Enqueue antivirus scan (if enabled)
+    try {
+      file.status = 'scanning' as any
+      await this.files.save(file)
+      await this.fileScanQueue.add('scan', { fileId: String(file.id) }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 200, removeOnFail: 500 })
     } catch {}
     const link = await this.links.save(this.links.create({ file: { id: fileId } as any, refTable: dto.refTable, refId: dto.refId }))
     try { await this.searchQueue.add('index_doc', { entity: 'files', id: String(file.id) }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 200, removeOnFail: 500 }) } catch {}
@@ -145,6 +162,8 @@ export class FilesService {
   async downloadToResponse(id: string, userId: string | null, res: Response) {
     const file = await this.files.findOne({ where: { id } })
     if (!file) throw new NotFoundException('File not found')
+    if (file.status === 'infected') throw new ForbiddenException('File blocked by antivirus')
+    if (file.status !== 'ready') throw new ForbiddenException('File not ready')
     // ACL: owner or linked context membership (chat participant / project member) or mail sender/recipient
     if (!userId) throw new ForbiddenException('Not permitted')
     if (!file.ownerId || String(file.ownerId) !== String(userId)) {
@@ -199,6 +218,12 @@ export class FilesService {
     // Optional background replication to secondary
     try { await this.replicateToSecondary(file)    } catch {}
     try { await this.searchQueue.add('index_doc', { entity: 'files', id: String(file.id) }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 200, removeOnFail: 500 }) } catch {}
+    // Trigger antivirus scan after confirm
+    try {
+      file.status = 'scanning' as any
+      await this.files.save(file)
+      await this.fileScanQueue.add('scan', { fileId: String(file.id) }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 200, removeOnFail: 500 })
+    } catch {}
     return file
   }
 

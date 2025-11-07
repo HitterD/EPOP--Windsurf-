@@ -1,6 +1,10 @@
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom'
 
+// FE-a11y-ci: jest-axe for automated accessibility testing
+import { toHaveNoViolations } from 'jest-axe'
+expect.extend(toHaveNoViolations)
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {

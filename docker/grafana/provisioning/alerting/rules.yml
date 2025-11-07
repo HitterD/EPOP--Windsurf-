@@ -1,0 +1,105 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: EPOP API Alerts
+    folder: EPOP Alerts
+    interval: 1m
+    rules:
+      - uid: api_error_rate
+        title: API Error Rate > 5% (5m)
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: |
+                sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+                /
+                sum(rate(http_requests_total[5m]))
+              instant: false
+              interval: ""
+              legendFormat: error_rate
+              datasource:
+                type: prometheus
+                uid: prometheus
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          severity: critical
+          service: api
+        labels:
+          severity: critical
+          service: api
+        isPaused: false
+        notifications: []
+        thresholds:
+          - type: gt
+            value: 0.05
+            ref: A
+
+      - uid: api_p95_latency
+        title: API p95 Latency > 1s (5m)
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: |
+                histogram_quantile(
+                  0.95,
+                  sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+                )
+              instant: false
+              interval: ""
+              legendFormat: p95
+              datasource:
+                type: prometheus
+                uid: prometheus
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          severity: warning
+          service: api
+        labels:
+          severity: warning
+          service: api
+        isPaused: false
+
+      - uid: pod_restarts
+        title: Pod Restarts Detected (K8s)
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: |
+                increase(kube_pod_container_status_restarts_total[10m])
+              instant: false
+              legendFormat: restarts
+              datasource:
+                type: prometheus
+                uid: prometheus
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          severity: warning
+          service: platform
+        labels:
+          severity: warning
+          service: platform
+        isPaused: false

@@ -70,6 +70,10 @@ jobs:
       - name: Unit tests
         run: npm test -- --passWithNoTests
 
+      - name: Accessibility tests (jest-axe)
+        run: npm test -- --testNamePattern="a11y|accessibility" --passWithNoTests
+        continue-on-error: false
+
       - name: Start server
         run: |
           nohup npm start &

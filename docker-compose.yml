@@ -78,3 +78,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  clamav:
+    image: clamav/clamav:latest
+    container_name: epop_clamav
+    ports:
+      - "3310:3310"
+    environment:
+      - CLAMD_STARTUP_CHECKS=yes
+    healthcheck:
+      test: ["CMD-SHELL", "(echo PING | nc -w 2 127.0.0.1 3310) | grep PONG || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5

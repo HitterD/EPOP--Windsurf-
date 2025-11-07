@@ -7,6 +7,10 @@ import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import { createTraceIdMiddleware } from './common/middleware/trace-id.middleware';
+import { initTracing } from './otel/tracing';
+
+// Initialize tracing (no-op if disabled)
+initTracing();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

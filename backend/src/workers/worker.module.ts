@@ -14,6 +14,7 @@ import { RedisModule } from '../redis/redis.module'
 import { NotificationWorkerService } from './notification.worker'
 import { FilesModule } from '../files/files.module'
 import { FilesLifecycleWorker } from './files-lifecycle.worker'
+import { FileScanWorker } from './file-scan.worker'
 import { CalendarReminderWorker } from './calendar-reminder.worker'
 import { CalendarEvent } from '../entities/calendar-event.entity'
 import { NotificationPreferencesEntity } from '../entities/notification-preferences.entity'
@@ -42,6 +43,7 @@ import { TaskAssignee } from '../entities/task-assignee.entity'
     CalendarReminderWorker,
     AnalyticsAggregatorWorker,
     WorkflowExecutorWorker,
+    FileScanWorker,
   ],
 })
 export class WorkersModule implements OnModuleDestroy {

@@ -36,6 +36,14 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3001
       - GF_INSTALL_PLUGINS=
+      # SMTP for alerting (MailHog in dev)
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=mailhog:1025
+      - GF_SMTP_FROM_ADDRESS=alerts@epop.local
+      - GF_SMTP_FROM_NAME=EPOP Alerts
+      - GF_ALERT_EMAIL_TO=dev-team@epop.local
+      # Optional: skip TLS verification in dev
+      - GF_SMTP_SKIP_VERIFY=true
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro

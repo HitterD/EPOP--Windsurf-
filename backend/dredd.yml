@@ -1,0 +1,17 @@
+dry-run: false
+server: http://127.0.0.1:4000/api/v1
+# Use the OpenAPI JSON exported during CI step
+blueprint: ./openapi.json
+language: nodejs
+hookfiles:
+  - ./dredd-hooks.js
+reporter:
+  - cli
+  - junit
+output:
+  - ./dredd-report.xml
+init: false
+names: false
+only:
+  # Run on all paths; hooks will skip mutating ones
+  - /.*
