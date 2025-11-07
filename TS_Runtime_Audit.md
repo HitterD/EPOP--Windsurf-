@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 - **Hasil uji singkat (target acceptance PR-3):**
   - Global ValidationPipe: request dengan field liar/ekstra ditolak 400 (whitelist + forbidNonWhitelisted).
   - Endpoint Projects/Chat menerima payload tervalidasi; properti wajib/divalidasi sesuai DTO.
   - HTML berbahaya disaring pada `compose.send` dan `chat.send/edit`.
+=======
+>>>>>>> 645cc703029eb963e6aaf6b06806bbe59c15c51b
 # Laporan Audit TypeScript & Runtime Risk — Proyek EPOP
 
 **Tanggal:** 7 November 2025
@@ -273,6 +276,7 @@ Setelah semua perbaikan P0 dan P1 diterapkan, kriteria berikut harus terpenuhi:
 | **Search** | 0 | N/A |
 | **UI/Shell** | 3 | **PR-1, PR-2 Direkomendasikan** |
 | **Backend (Umum)** | 2 | **PR-3, PR-4 Direkomendasikan** |
+<<<<<<< HEAD
 
 ## Fix Execution Tracker
 - [x] PR-1 Type Safety Foundation — merged: (# )
@@ -337,3 +341,5 @@ Setelah semua perbaikan P0 dan P1 diterapkan, kriteria berikut harus terpenuhi:
   - 'use client' ditambahkan pada komponen interaktif yang dipakai luas (`Tabs`, `DropdownMenu`).
   - Tidak ditemukan kasus props non-serializable server→client di repo saat ini.
   - `next build` siap dijalankan; perubahan `eslint.ignoreDuringBuilds=false` dapat memunculkan error lint (diatasi pada PR-6). Hydration errors tidak teridentifikasi pada komponen yang diaudit.
+=======
+>>>>>>> 645cc703029eb963e6aaf6b06806bbe59c15c51b
