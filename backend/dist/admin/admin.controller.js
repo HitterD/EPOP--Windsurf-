@@ -18,6 +18,9 @@ const passport_1 = require("@nestjs/passport");
 const platform_express_1 = require("@nestjs/platform-express");
 const admin_service_1 = require("./admin.service");
 const multer_1 = require("multer");
+const roles_decorator_1 = require("../common/decorators/roles.decorator");
+const swagger_1 = require("@nestjs/swagger");
+const error_dto_1 = require("../common/dto/error.dto");
 let AdminController = class AdminController {
     admin;
     constructor(admin) {
@@ -41,6 +44,7 @@ exports.AdminController = AdminController;
 __decorate([
     (0, common_1.Post)('users/bulk-import'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { storage: (0, multer_1.memoryStorage)(), limits: { fileSize: 5 * 1024 * 1024 } })),
+    (0, swagger_1.ApiOkResponse)({ type: Object }),
     __param(0, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -48,12 +52,16 @@ __decorate([
 ], AdminController.prototype, "bulk", null);
 __decorate([
     (0, common_1.Get)('analytics'),
+    (0, swagger_1.ApiOkResponse)({ type: Object }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "analytics", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, roles_decorator_1.Roles)('admin'),
+    (0, swagger_1.ApiTags)('admin'),
+    (0, swagger_1.ApiDefaultResponse)({ type: error_dto_1.ErrorResponse }),
     (0, common_1.Controller)('admin'),
     __metadata("design:paramtypes", [admin_service_1.AdminService])
 ], AdminController);

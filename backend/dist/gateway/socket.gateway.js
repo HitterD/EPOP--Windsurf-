@@ -27,6 +27,7 @@ let SocketGateway = SocketGateway_1 = class SocketGateway {
     sub;
     pub;
     logger = new common_1.Logger(SocketGateway_1.name);
+    typingCooldowns = new Map();
     server;
     constructor(sub, pub) {
         this.sub = sub;
@@ -65,9 +66,29 @@ let SocketGateway = SocketGateway_1 = class SocketGateway {
         if (rooms.length === 0 && evt.aggregateType && evt.aggregateId) {
             rooms.push(`${evt.aggregateType}:${evt.aggregateId}`);
         }
-        const eventName = channel.replace('epop.', '');
+        const eventNameDot = channel.replace('epop.', '');
+        const [domain, entity, action] = eventNameDot.split('.');
+        const eventNameColon = (domain && entity && action) ? `${domain}:${entity}_${action}` : eventNameDot;
+        const ids = Array.from(new Set([
+            evt.aggregateId,
+            evt.messageId,
+            evt.taskId,
+            evt.chatId,
+            evt.projectId,
+            evt.fileId,
+            evt.mailId,
+        ].filter(Boolean).map(String)));
+        const payload = {
+            ...evt,
+            ids,
+            patch: evt.patch ?? undefined,
+            ts: evt.timestamp ?? new Date().toISOString(),
+            actorId: evt.userId ?? null,
+            requestId: evt.requestId ?? null,
+        };
         for (const room of rooms) {
-            this.server.to(room).emit(eventName, evt);
+            this.server.to(room).emit(eventNameDot, payload);
+            this.server.to(room).emit(eventNameColon, payload);
         }
     }
     handleJoinChat(socket, chatId) {
@@ -87,6 +108,50 @@ let SocketGateway = SocketGateway_1 = class SocketGateway {
     }
     handleLeaveUser(socket, userId) {
         socket.leave(`user:${userId}`);
+    }
+    handleTypingStart(socket, body) {
+        const chatId = String(body?.chatId || '');
+        const userId = String(body?.userId || '');
+        if (!chatId || !userId)
+            return;
+        const key = `${chatId}:${userId}`;
+        const now = Date.now();
+        const last = this.typingCooldowns.get(key) || 0;
+        if (now - last < 1000)
+            return;
+        this.typingCooldowns.set(key, now);
+        this.server.to(`chat:${chatId}`).emit('chat:typing_start', { chatId, userId, userName: body?.userName });
+        this.server.to(`chat:${chatId}`).emit('chat.typing.start', { chatId, userId, userName: body?.userName });
+    }
+    handleTypingStop(socket, body) {
+        const chatId = String(body?.chatId || '');
+        const userId = String(body?.userId || '');
+        if (!chatId || !userId)
+            return;
+        this.server.to(`chat:${chatId}`).emit('chat:typing_stop', { chatId, userId });
+        this.server.to(`chat:${chatId}`).emit('chat.typing.stop', { chatId, userId });
+    }
+    handleTypingStartDot(socket, body) {
+        const chatId = String(body?.chatId || '');
+        const userId = String(body?.userId || '');
+        if (!chatId || !userId)
+            return;
+        const key = `${chatId}:${userId}`;
+        const now = Date.now();
+        const last = this.typingCooldowns.get(key) || 0;
+        if (now - last < 1000)
+            return;
+        this.typingCooldowns.set(key, now);
+        this.server.to(`chat:${chatId}`).emit('chat:typing_start', { chatId, userId, userName: body?.userName });
+        this.server.to(`chat:${chatId}`).emit('chat.typing.start', { chatId, userId, userName: body?.userName });
+    }
+    handleTypingStopDot(socket, body) {
+        const chatId = String(body?.chatId || '');
+        const userId = String(body?.userId || '');
+        if (!chatId || !userId)
+            return;
+        this.server.to(`chat:${chatId}`).emit('chat:typing_stop', { chatId, userId });
+        this.server.to(`chat:${chatId}`).emit('chat.typing.stop', { chatId, userId });
     }
 };
 exports.SocketGateway = SocketGateway;
@@ -142,6 +207,38 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, String]),
     __metadata("design:returntype", void 0)
 ], SocketGateway.prototype, "handleLeaveUser", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('chat:typing_start'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], SocketGateway.prototype, "handleTypingStart", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('chat:typing_stop'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], SocketGateway.prototype, "handleTypingStop", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('chat.typing.start'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], SocketGateway.prototype, "handleTypingStartDot", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('chat.typing.stop'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], SocketGateway.prototype, "handleTypingStopDot", null);
 exports.SocketGateway = SocketGateway = SocketGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({ namespace: '/ws', cors: { origin: true, credentials: true } }),
     __param(0, (0, common_1.Inject)(redis_module_1.REDIS_SUB)),

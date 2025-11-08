@@ -8,7 +8,10 @@ export declare class AuthService {
     private readonly config;
     constructor(users: Repository<User>, jwt: JwtService, config: ConfigService);
     validateUser(email: string, password: string): Promise<User>;
-    signAccessToken(user: User): Promise<string>;
-    signRefreshToken(user: User): Promise<string>;
+    signAccessToken(user: User, sessionId: string): Promise<string>;
+    signRefreshToken(user: User, sessionId: string): Promise<{
+        token: string;
+        jti: string;
+    }>;
     verifyRefreshToken(token: string): Promise<any>;
 }

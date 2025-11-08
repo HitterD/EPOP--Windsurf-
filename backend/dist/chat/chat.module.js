@@ -14,17 +14,20 @@ const chat_participant_entity_1 = require("../entities/chat-participant.entity")
 const message_entity_1 = require("../entities/message.entity");
 const message_reaction_entity_1 = require("../entities/message-reaction.entity");
 const message_read_entity_1 = require("../entities/message-read.entity");
+const message_history_entity_1 = require("../entities/message-history.entity");
 const chat_service_1 = require("./chat.service");
 const chat_controller_1 = require("./chat.controller");
 const events_module_1 = require("../events/events.module");
+const redis_module_1 = require("../redis/redis.module");
 let ChatModule = class ChatModule {
 };
 exports.ChatModule = ChatModule;
 exports.ChatModule = ChatModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([chat_entity_1.Chat, chat_participant_entity_1.ChatParticipant, message_entity_1.Message, message_reaction_entity_1.MessageReaction, message_read_entity_1.MessageRead]),
+            typeorm_1.TypeOrmModule.forFeature([chat_entity_1.Chat, chat_participant_entity_1.ChatParticipant, message_entity_1.Message, message_reaction_entity_1.MessageReaction, message_read_entity_1.MessageRead, message_history_entity_1.MessageHistory]),
             events_module_1.EventsModule,
+            redis_module_1.RedisModule,
         ],
         providers: [chat_service_1.ChatService],
         controllers: [chat_controller_1.ChatController],

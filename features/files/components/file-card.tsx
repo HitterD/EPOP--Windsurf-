@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { FileItem } from '@/types'
 import { formatFileSize, formatDate } from '@/lib/utils/format'
 import { 
@@ -86,9 +87,12 @@ export function FileCard({
         {/* Thumbnail/Icon */}
         <div className="flex-shrink-0 w-12 h-12 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
           {isImage && !imageError ? (
-            <img
+            <Image
               src={file.thumbnailUrl || file.url}
               alt={file.name}
+              width={48}
+              height={48}
+              unoptimized
               className="w-full h-full object-cover"
               onError={() => setImageError(true)}
             />
@@ -184,12 +188,14 @@ export function FileCard({
       onClick={() => onSelect?.(file)}
     >
       {/* Thumbnail */}
-      <div className="aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
         {isImage && !imageError ? (
-          <img
+          <Image
             src={file.thumbnailUrl || file.url}
             alt={file.name}
-            className="w-full h-full object-cover"
+            fill
+            unoptimized
+            className="object-cover"
             onError={() => setImageError(true)}
           />
         ) : (

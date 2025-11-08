@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Attachment } from '@/types'
+import Image from 'next/image'
+import { Attachment, type FileItem } from '@/types'
 import { File, Download, Eye, Image as ImageIcon, FileText, Video, Music } from 'lucide-react'
 import { formatFileSize } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -14,7 +15,7 @@ interface MessageAttachmentsProps {
 }
 
 export function MessageAttachments({ attachments, compact = false }: MessageAttachmentsProps) {
-  const [previewFile, setPreviewFile] = useState<any>(null)
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
 
   if (!attachments || attachments.length === 0) return null
 
@@ -36,7 +37,8 @@ export function MessageAttachments({ attachments, compact = false }: MessageAtta
       url: attachment.url,
       status: 'ready',
       createdAt: new Date().toISOString(),
-    })
+      updatedAt: new Date().toISOString(),
+    } as FileItem)
   }
 
   const canPreview = (mimeType: string) => {
@@ -80,11 +82,15 @@ export function MessageAttachments({ attachments, compact = false }: MessageAtta
               )}
               onClick={() => handlePreview(attachment)}
             >
-              <img
-                src={attachment.url}
-                alt={attachment.name}
-                className="w-full h-48 object-cover"
-              />
+              <div className="relative h-48 w-full">
+                <Image
+                  src={attachment.url}
+                  alt={attachment.name}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                />
+              </div>
               
               {/* Hover overlay */}
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -189,7 +195,7 @@ export function MessageAttachments({ attachments, compact = false }: MessageAtta
             updatedAt: new Date().toISOString(),
           }))}
           onNavigate={(direction) => {
-            const currentIndex = attachments.findIndex(a => a.id === previewFile.id)
+            const currentIndex = attachments.findIndex(a => a.id === (previewFile as FileItem).id)
             const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1
             if (newIndex >= 0 && newIndex < attachments.length) {
               const newAttachment = attachments[newIndex]
@@ -202,7 +208,8 @@ export function MessageAttachments({ attachments, compact = false }: MessageAtta
                 url: newAttachment.url,
                 status: 'ready',
                 createdAt: new Date().toISOString(),
-              })
+                updatedAt: new Date().toISOString(),
+              } as FileItem)
             }
           }}
         />

@@ -10,7 +10,7 @@ export interface TreeNode {
   label: string
   icon?: React.ReactNode
   children?: TreeNode[]
-  data?: any
+  data?: unknown
 }
 
 interface TreeViewProps {

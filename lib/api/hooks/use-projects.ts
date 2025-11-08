@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { Project, Task, Bucket, CursorPaginatedResponse } from '@/types'
 import { buildCursorQuery, withIdempotencyKey } from '../utils'
@@ -86,18 +86,21 @@ export function useUpdateTask(projectId: string) {
     },
     onSuccess: (saved) => {
       // Update tasks infinite list
-      qc.setQueryData(['project-tasks', projectId], (old: any) => {
-        if (!old || !Array.isArray(old.pages)) return old
-        const pages = old.pages.map((p: any) => ({
-          ...p,
-          items: (p.items || []).map((t: Task) => (t.id === saved.id ? { ...t, ...saved } : t)),
-        }))
-        return { ...old, pages }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Task>> | undefined>(
+        ['project-tasks', projectId],
+        (old) => {
+          if (!old) return old
+          const pages = old.pages.map((p): CursorPaginatedResponse<Task> => ({
+            ...p,
+            items: (p.items || []).map((t: Task) => (t.id === saved.id ? { ...t, ...saved } : t)),
+          }))
+          return { ...old, pages }
+        },
+      )
       // Update bucket snapshot
-      qc.setQueryData(['project-buckets', projectId], (old: any) => {
+      qc.setQueryData<Bucket[] | undefined>(['project-buckets', projectId], (old) => {
         if (!old || !Array.isArray(old)) return old
-        return old.map((b: any) => ({
+        return old.map((b) => ({
           ...b,
           tasks: (b.tasks || []).map((t: Task) => (t.id === saved.id ? { ...t, ...saved } : t)),
         }))
@@ -119,7 +122,7 @@ export function useAddBucket(projectId: string) {
       return res.data
     },
     onSuccess: (bucket) => {
-      qc.setQueryData(['project-buckets', projectId], (old: any) => {
+      qc.setQueryData<Bucket[] | undefined>(['project-buckets', projectId], (old) => {
         if (!old || !Array.isArray(old)) return old
         return [bucket, ...old]
       })
@@ -156,24 +159,27 @@ export function useMoveTask(projectId: string) {
       await qc.cancelQueries({ queryKey: ['project-buckets', projectId] })
 
       // Snapshot previous value
-      const previousTasks = qc.getQueryData(['project-tasks', projectId])
-      const previousBuckets = qc.getQueryData(['project-buckets', projectId])
+      const previousTasks = qc.getQueryData<InfiniteData<CursorPaginatedResponse<Task>> | undefined>(['project-tasks', projectId])
+      const previousBuckets = qc.getQueryData<Bucket[] | undefined>(['project-buckets', projectId])
 
       // Optimistically update
-      qc.setQueryData(['project-tasks', projectId], (old: any) => {
-        if (!old) return old
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            items: page.items.map((task: Task) =>
-              task.id === taskId
-                ? { ...task, bucketId: toBucketId, order: orderIndex }
-                : task
-            ),
-          })),
-        }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Task>> | undefined>(
+        ['project-tasks', projectId],
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page): CursorPaginatedResponse<Task> => ({
+              ...page,
+              items: (page.items || []).map((task: Task) =>
+                task.id === taskId
+                  ? { ...task, bucketId: toBucketId, order: orderIndex }
+                  : task
+              ),
+            })),
+          }
+        },
+      )
 
       return { previousTasks, previousBuckets }
     },
@@ -216,10 +222,10 @@ export function useReorderTasks(projectId: string) {
     },
     onMutate: async ({ bucketId, taskIds }) => {
       await qc.cancelQueries({ queryKey: ['project-buckets', projectId] })
-      const previousBuckets = qc.getQueryData(['project-buckets', projectId])
+      const previousBuckets = qc.getQueryData<Bucket[] | undefined>(['project-buckets', projectId])
 
       // Optimistically reorder
-      qc.setQueryData(['project-buckets', projectId], (old: any) => {
+      qc.setQueryData<Bucket[] | undefined>(['project-buckets', projectId], (old) => {
         if (!old || !Array.isArray(old)) return old
         return old.map((bucket: Bucket) => {
           if (bucket.id !== bucketId) return bucket
@@ -230,7 +236,7 @@ export function useReorderTasks(projectId: string) {
               const task = taskMap.get(id)
               return task ? { ...task, order: index } : null
             })
-            .filter(Boolean)
+            .filter((t): t is Task => Boolean(t))
 
           return { ...bucket, tasks: reorderedTasks }
         })
@@ -266,21 +272,24 @@ export function useCreateTask(projectId: string) {
     },
     onSuccess: (saved) => {
       // Prepend to tasks infinite list
-      qc.setQueryData(['project-tasks', projectId], (old: any) => {
-        if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
-        const first = old.pages[0]
-        return {
-          ...old,
-          pages: [
-            { ...first, items: [saved, ...(first.items || [])] },
-            ...old.pages.slice(1),
-          ],
-        }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Task>> | undefined>(
+        ['project-tasks', projectId],
+        (old) => {
+          if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
+          const first = old.pages[0]!
+          return {
+            ...old,
+            pages: [
+              { ...first, items: [saved, ...(first.items || [])] },
+              ...old.pages.slice(1),
+            ],
+          }
+        },
+      )
       // Add into bucket snapshot
-      qc.setQueryData(['project-buckets', projectId], (old: any) => {
+      qc.setQueryData<Bucket[] | undefined>(['project-buckets', projectId], (old) => {
         if (!old || !Array.isArray(old)) return old
-        return old.map((b: any) => (b.id === saved.bucketId ? { ...b, tasks: [saved, ...(b.tasks || [])] } : b))
+        return old.map((b) => (b.id === saved.bucketId ? { ...b, tasks: [saved, ...(b.tasks || [])] } : b))
       })
     },
   })
@@ -298,18 +307,21 @@ export function useDeleteTask(projectId: string) {
     },
     onSuccess: (_ok, taskId) => {
       // Remove from tasks infinite list
-      qc.setQueryData(['project-tasks', projectId], (old: any) => {
-        if (!old || !Array.isArray(old.pages)) return old
-        const pages = old.pages.map((p: any) => ({
-          ...p,
-          items: (p.items || []).filter((t: Task) => t.id !== taskId),
-        }))
-        return { ...old, pages }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Task>> | undefined>(
+        ['project-tasks', projectId],
+        (old) => {
+          if (!old) return old
+          const pages = old.pages.map((p): CursorPaginatedResponse<Task> => ({
+            ...p,
+            items: (p.items || []).filter((t: Task) => t.id !== taskId),
+          }))
+          return { ...old, pages }
+        },
+      )
       // Remove from buckets snapshot
-      qc.setQueryData(['project-buckets', projectId], (old: any) => {
+      qc.setQueryData<Bucket[] | undefined>(['project-buckets', projectId], (old) => {
         if (!old || !Array.isArray(old)) return old
-        return old.map((b: any) => ({
+        return old.map((b) => ({
           ...b,
           tasks: (b.tasks || []).filter((t: Task) => t.id !== taskId),
         }))

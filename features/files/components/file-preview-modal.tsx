@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ComponentType } from 'react'
+import Image from 'next/image'
+import type { DocumentProps, PageProps } from 'react-pdf'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Download, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
@@ -169,12 +171,16 @@ export function FilePreviewModal({
                 </div>
               </div>
             ) : isImage ? (
-              <img
-                src={file.url}
-                alt={file.name}
-                className="max-w-full max-h-full object-contain"
-                style={{ transform: `scale(${zoom / 100})` }}
-              />
+              <div className="relative w-full h-full">
+                <Image
+                  src={file.url}
+                  alt={file.name}
+                  fill
+                  unoptimized
+                  className="object-contain"
+                  style={{ transform: `scale(${zoom / 100})` }}
+                />
+              </div>
             ) : isPdf ? (
               <PDFPreview
                 url={file.url}
@@ -294,18 +300,21 @@ function PDFPreview({
   const [scale, setScale] = useState(1.0)
 
   // Dynamic import for react-pdf to avoid SSR issues
-  const [Document, setDocument] = useState<any>(null)
-  const [Page, setPage] = useState<any>(null)
+  const [Document, setDocument] = useState<ComponentType<DocumentProps> | null>(null)
+  const [Page, setPage] = useState<ComponentType<PageProps> | null>(null)
 
   useEffect(() => {
     const loadPdfComponents = async () => {
       try {
-        const pdfjs = await import('pdfjs-dist')
-        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
-        
         const reactPdf = await import('react-pdf')
-        setDocument(() => reactPdf.Document)
-        setPage(() => reactPdf.Page)
+        try {
+          reactPdf.pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+        } catch {
+          const ver = reactPdf.pdfjs?.version || '4.0.0'
+          reactPdf.pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`
+        }
+        setDocument(() => reactPdf.Document as unknown as ComponentType<DocumentProps>)
+        setPage(() => reactPdf.Page as unknown as ComponentType<PageProps>)
       } catch (err) {
         console.error('Failed to load PDF components:', err)
         setError('Failed to load PDF viewer')

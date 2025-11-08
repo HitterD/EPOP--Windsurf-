@@ -44,17 +44,31 @@ class EnvironmentVariables {
     SMTP_PASS;
     SMTP_SECURE;
     MAIL_FROM;
+    S3_SECONDARY_ENABLED;
+    S3_SECONDARY_ENDPOINT;
+    S3_SECONDARY_PORT;
+    S3_SECONDARY_ACCESS_KEY;
+    S3_SECONDARY_SECRET_KEY;
+    S3_SECONDARY_BUCKET;
+    S3_SECONDARY_USE_SSL;
     VAPID_PUBLIC_KEY;
     VAPID_PRIVATE_KEY;
     VAPID_SUBJECT;
     CORS_ORIGIN;
     RATE_LIMIT_WINDOW_MS;
     RATE_LIMIT_MAX;
+    EMAIL_WORKER_CONCURRENCY;
+    SEARCH_WORKER_CONCURRENCY;
+    NOTIFICATION_WORKER_CONCURRENCY;
     JWT_ACCESS_SECRET;
     JWT_REFRESH_SECRET;
     JWT_ACCESS_TTL;
     JWT_REFRESH_TTL;
     COOKIE_DOMAIN;
+    ICS_FEED_SECRET;
+    TYPEORM_LOGGING;
+    TYPEORM_SLOW_QUERY_THRESHOLD_MS;
+    TYPEORM_SLOW_QUERY_LOG_FILE;
 }
 exports.EnvironmentVariables = EnvironmentVariables;
 __decorate([
@@ -181,6 +195,42 @@ __decorate([
     __metadata("design:type", String)
 ], EnvironmentVariables.prototype, "MAIL_FROM", void 0);
 __decorate([
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], EnvironmentVariables.prototype, "S3_SECONDARY_ENABLED", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], EnvironmentVariables.prototype, "S3_SECONDARY_ENDPOINT", void 0);
+__decorate([
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], EnvironmentVariables.prototype, "S3_SECONDARY_PORT", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], EnvironmentVariables.prototype, "S3_SECONDARY_ACCESS_KEY", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], EnvironmentVariables.prototype, "S3_SECONDARY_SECRET_KEY", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], EnvironmentVariables.prototype, "S3_SECONDARY_BUCKET", void 0);
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], EnvironmentVariables.prototype, "S3_SECONDARY_USE_SSL", void 0);
+__decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
@@ -213,6 +263,24 @@ __decorate([
     __metadata("design:type", Number)
 ], EnvironmentVariables.prototype, "RATE_LIMIT_MAX", void 0);
 __decorate([
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], EnvironmentVariables.prototype, "EMAIL_WORKER_CONCURRENCY", void 0);
+__decorate([
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], EnvironmentVariables.prototype, "SEARCH_WORKER_CONCURRENCY", void 0);
+__decorate([
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], EnvironmentVariables.prototype, "NOTIFICATION_WORKER_CONCURRENCY", void 0);
+__decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
@@ -239,6 +307,27 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], EnvironmentVariables.prototype, "COOKIE_DOMAIN", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], EnvironmentVariables.prototype, "ICS_FEED_SECRET", void 0);
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], EnvironmentVariables.prototype, "TYPEORM_LOGGING", void 0);
+__decorate([
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], EnvironmentVariables.prototype, "TYPEORM_SLOW_QUERY_THRESHOLD_MS", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], EnvironmentVariables.prototype, "TYPEORM_SLOW_QUERY_LOG_FILE", void 0);
 function validate(config) {
     const defaults = {
         NODE_ENV: 'development',
@@ -265,6 +354,13 @@ function validate(config) {
         SMTP_PASS: '',
         SMTP_SECURE: false,
         MAIL_FROM: 'noreply@epop.local',
+        S3_SECONDARY_ENABLED: false,
+        S3_SECONDARY_ENDPOINT: '',
+        S3_SECONDARY_PORT: 9000,
+        S3_SECONDARY_ACCESS_KEY: '',
+        S3_SECONDARY_SECRET_KEY: '',
+        S3_SECONDARY_BUCKET: 'epop',
+        S3_SECONDARY_USE_SSL: false,
         VAPID_SUBJECT: 'mailto:admin@epop.local',
         RATE_LIMIT_WINDOW_MS: 60000,
         RATE_LIMIT_MAX: 100,
@@ -273,6 +369,13 @@ function validate(config) {
         JWT_ACCESS_TTL: 900,
         JWT_REFRESH_TTL: 1209600,
         COOKIE_DOMAIN: 'localhost',
+        ICS_FEED_SECRET: 'dev_ics_secret',
+        EMAIL_WORKER_CONCURRENCY: 5,
+        SEARCH_WORKER_CONCURRENCY: 5,
+        NOTIFICATION_WORKER_CONCURRENCY: 5,
+        TYPEORM_LOGGING: false,
+        TYPEORM_SLOW_QUERY_THRESHOLD_MS: 200,
+        TYPEORM_SLOW_QUERY_LOG_FILE: 'logs/slow-queries.log',
         ...config,
     };
     const validated = (0, class_transformer_1.plainToInstance)(EnvironmentVariables, defaults, {

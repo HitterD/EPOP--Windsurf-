@@ -1,4 +1,5 @@
 import { Controller, Get, Put, Query, Param, UseGuards, Req } from '@nestjs/common'
+import type { Request } from 'express'
 import { AuthGuard } from '@nestjs/passport'
 import { SearchService } from './search.service'
 import { ApiDefaultResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger'
@@ -20,7 +21,7 @@ export class SearchController {
     @Query('tab') tab: 'all'|'messages'|'projects'|'users'|'files' | undefined,
     @Query('limit') limitStr: string | undefined,
     @Query('offset') offsetStr: string | undefined,
-    @Req() req: any,
+    @Req() req: Request & { user?: { userId?: string } },
   ) {
     const userId = req.user?.userId
     const query = (q || '').toString()
@@ -28,17 +29,17 @@ export class SearchController {
     const offset = Math.max(0, Number(offsetStr ?? 0))
 
     // Helper to convert hits to FE shape
-    const wrap = (hits: any[]) => hits.map((h) => ({ item: h, score: 1 }))
+    const wrap = <T,>(hits: T[]) => hits.map((h) => ({ item: h, score: 1 }))
 
     if (!tab || tab === 'all') {
       const all = await this.search.searchAll(query, userId)
       // searchAll returns { results: [{ index, hits }] }
-      const pick = (name: string) => (all?.results || []).find((r: any) => String(r.index || '').endsWith(`_${name}`))?.hits || []
+      const pick = (name: string) => (all?.results || []).find((r) => String((r as { index?: unknown }).index || '').endsWith(`_${name}`))?.hits || []
       const messages = wrap(pick('messages'))
       const files = wrap(pick('files'))
       const projects = wrap(pick('tasks'))
       // users tab is not backed by Zinc in this phase
-      const users: any[] = []
+      const users: unknown[] = []
       const total = messages.length + files.length + projects.length + users.length
       return { messages, files, projects, users, total, took: 0 }
     }
@@ -82,7 +83,7 @@ export class SearchController {
     @Param('entity') entity: 'messages'|'mail_messages'|'files'|'tasks',
     @Query('q') q: string,
     @Query() params: CursorParamsDto,
-    @Req() req?: any,
+    @Req() req: Request & { user?: { userId?: string } },
   ) {
     const lim = Math.max(1, Math.min(100, Number(params?.limit ?? 20)))
     return this.search.searchCursor(entity, q || '', req.user?.userId, lim, params?.cursor || null)

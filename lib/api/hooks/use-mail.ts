@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { MailMessage, CursorPaginatedResponse } from '@/types'
 import { buildCursorQuery, withIdempotencyKey } from '../utils'
@@ -32,18 +32,21 @@ export function useSetMailRead(folder?: 'received' | 'sent' | 'deleted') {
     },
     onMutate: async ({ messageId, isRead }) => {
       const listKey = folder ? ['mail', folder] : undefined
-      const prevList = listKey ? qc.getQueryData(listKey) : undefined
+      const prevList = listKey ? qc.getQueryData<InfiniteData<CursorPaginatedResponse<MailMessage>> | undefined>(listKey) : undefined
       const prevDetail = qc.getQueryData<MailMessage>(['mail-message', messageId])
 
       if (listKey) {
-        qc.setQueryData(listKey, (old: any) => {
-          if (!old || !Array.isArray(old.pages)) return old
-          const pages = old.pages.map((p: any) => ({
-            ...p,
-            items: (p.items || []).map((m: MailMessage) => (m.id === messageId ? { ...m, isRead } : m)),
-          }))
-          return { ...old, pages }
-        })
+        qc.setQueryData<InfiniteData<CursorPaginatedResponse<MailMessage>> | undefined>(
+          listKey,
+          (old) => {
+            if (!old) return old
+            const pages = old.pages.map((p): CursorPaginatedResponse<MailMessage> => ({
+              ...p,
+              items: (p.items || []).map((m: MailMessage) => (m.id === messageId ? { ...m, isRead } : m)),
+            }))
+            return { ...old, pages }
+          },
+        )
       }
       if (prevDetail) {
         qc.setQueryData<MailMessage>(['mail-message', messageId], { ...prevDetail, isRead })
@@ -57,7 +60,7 @@ export function useSetMailRead(folder?: 'received' | 'sent' | 'deleted') {
         qc.setQueryData(ctx.listKey, ctx.prevList)
       }
       if (ctx.prevDetail) {
-        const id = (ctx.prevDetail as any).id
+        const id = ctx.prevDetail.id
         qc.setQueryData(['mail-message', id], ctx.prevDetail)
       }
     },
@@ -86,17 +89,20 @@ export function useSendMail() {
       return res.data
     },
     onSuccess: (msg) => {
-      qc.setQueryData(['mail', 'sent'], (old: any) => {
-        if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
-        const first = old.pages[0]
-        return {
-          ...old,
-          pages: [
-            { ...first, items: [msg, ...(first.items || [])] },
-            ...old.pages.slice(1),
-          ],
-        }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<MailMessage>> | undefined>(
+        ['mail', 'sent'],
+        (old) => {
+          if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
+          const first = old.pages[0]!
+          return {
+            ...old,
+            pages: [
+              { ...first, items: [msg, ...(first.items || [])] },
+              ...old.pages.slice(1),
+            ],
+          }
+        },
+      )
     },
   })
 }
@@ -127,28 +133,34 @@ export function useMoveMail() {
     },
     onSuccess: (msg, variables) => {
       // Add to destination folder first page
-      qc.setQueryData(['mail', variables.folder], (old: any) => {
-        if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
-        const first = old.pages[0]
-        return {
-          ...old,
-          pages: [
-            { ...first, items: [msg, ...(first.items || [])] },
-            ...old.pages.slice(1),
-          ],
-        }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<MailMessage>> | undefined>(
+        ['mail', variables.folder],
+        (old) => {
+          if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
+          const first = old.pages[0]!
+          return {
+            ...old,
+            pages: [
+              { ...first, items: [msg, ...(first.items || [])] },
+              ...old.pages.slice(1),
+            ],
+          }
+        },
+      )
       // Remove from other folders if present
       ;(['received','sent','deleted'] as const).forEach((f) => {
         if (f === variables.folder) return
-        qc.setQueryData(['mail', f], (old: any) => {
-          if (!old || !Array.isArray(old.pages)) return old
-          const pages = old.pages.map((p: any) => ({
-            ...p,
-            items: (p.items || []).filter((m: MailMessage) => m.id !== variables.messageId),
-          }))
-          return { ...old, pages }
-        })
+        qc.setQueryData<InfiniteData<CursorPaginatedResponse<MailMessage>> | undefined>(
+          ['mail', f],
+          (old) => {
+            if (!old) return old
+            const pages = old.pages.map((p): CursorPaginatedResponse<MailMessage> => ({
+              ...p,
+              items: (p.items || []).filter((m: MailMessage) => m.id !== variables.messageId),
+            }))
+            return { ...old, pages }
+          },
+        )
       })
       qc.invalidateQueries({ queryKey: ['mail-message', variables.messageId] })
     },

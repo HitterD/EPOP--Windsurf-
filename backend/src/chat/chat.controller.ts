@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common'
+import type { Request } from 'express'
 import { AuthGuard } from '@nestjs/passport'
 import { ChatService } from './chat.service'
 import { ApiDefaultResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger'
@@ -19,20 +20,20 @@ export class ChatController {
 
   @Get()
   @ApiOkResponse({ type: Chat, isArray: true })
-  async list(@Req() req: any) {
+  async list(@Req() req: Request & { user: { userId: string } }) {
     return this.chat.listChats(req.user.userId)
   }
 
   @Post()
   @ApiOkResponse({ type: Chat })
-  async create(@Req() req: any, @Body() dto: CreateChatDto) {
+  async create(@Req() req: Request & { user: { userId: string } }, @Body() dto: CreateChatDto) {
     return this.chat.createChat(req.user.userId, dto)
   }
 
   @Get(':chatId/messages')
   @ApiOkResponse({ type: Message, isArray: true })
   async messages(
-    @Req() req: any,
+    @Req() req: Request & { user: { userId: string } },
     @Param('chatId') chatId: string,
     @Query('limit') limit?: string,
     @Query('beforeId') beforeId?: string,
@@ -44,7 +45,7 @@ export class ChatController {
   @Get(':chatId/messages/cursor')
   @ApiOkResponse({ type: CursorMessagesResponse })
   async messagesCursor(
-    @Req() req: any,
+    @Req() req: Request & { user: { userId: string } },
     @Param('chatId') chatId: string,
     @Query() params: CursorParamsDto,
   ) {
@@ -55,7 +56,7 @@ export class ChatController {
   @Post(':chatId/messages')
   @ApiOkResponse({ type: Message })
   async send(
-    @Req() req: any,
+    @Req() req: Request & { user: { userId: string } },
     @Param('chatId') chatId: string,
     @Body() body: SendMessageDto,
   ) {
@@ -65,7 +66,7 @@ export class ChatController {
   @Get(':chatId/threads')
   @ApiOkResponse({ type: Message, isArray: true })
   async thread(
-    @Req() req: any,
+    @Req() req: Request & { user: { userId: string } },
     @Param('chatId') chatId: string,
     @Query('rootMessageId') rootMessageId: string,
   ) {
@@ -74,27 +75,27 @@ export class ChatController {
 
   @Post(':chatId/reactions')
   @ApiOkResponse({ type: SuccessResponse })
-  async addReaction(@Req() req: any, @Param('chatId') chatId: string, @Body() body: ReactionDto) {
+  async addReaction(@Req() req: Request & { user: { userId: string } }, @Param('chatId') chatId: string, @Body() body: ReactionDto) {
     // chatId trusted for auth membership in service via message
     return this.chat.addReaction(req.user.userId, body)
   }
 
   @Delete(':chatId/reactions')
   @ApiOkResponse({ type: SuccessResponse })
-  async removeReaction(@Req() req: any, @Param('chatId') chatId: string, @Body() body: ReactionDto) {
+  async removeReaction(@Req() req: Request & { user: { userId: string } }, @Param('chatId') chatId: string, @Body() body: ReactionDto) {
     return this.chat.removeReaction(req.user.userId, body)
   }
 
   @Post(':chatId/reads')
   @ApiOkResponse({ type: SuccessResponse })
-  async markRead(@Req() req: any, @Param('chatId') chatId: string, @Body('messageId') messageId: string) {
+  async markRead(@Req() req: Request & { user: { userId: string } }, @Param('chatId') chatId: string, @Body('messageId') messageId: string) {
     return this.chat.markRead(req.user.userId, messageId)
   }
 
   @Post(':chatId/messages/:messageId/edit')
   @ApiOkResponse({ type: SuccessResponse })
   async edit(
-    @Req() req: any,
+    @Req() req: Request & { user: { userId: string } },
     @Param('chatId') chatId: string,
     @Param('messageId') messageId: string,
     @Body() dto: EditMessageDto,
@@ -105,7 +106,7 @@ export class ChatController {
   @Delete(':chatId/messages/:messageId')
   @ApiOkResponse({ type: SuccessResponse })
   async remove(
-    @Req() req: any,
+    @Req() req: Request & { user: { userId: string } },
     @Param('chatId') chatId: string,
     @Param('messageId') messageId: string,
   ) {
@@ -113,7 +114,7 @@ export class ChatController {
   }
 
   @Get('unread')
-  async unread(@Req() req: any) {
+  async unread(@Req() req: Request & { user: { userId: string } }) {
     return this.chat.unreadPerChat(req.user.userId)
   }
 }

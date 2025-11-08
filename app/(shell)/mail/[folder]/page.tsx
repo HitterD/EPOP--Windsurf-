@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMail, useSetMailRead } from '@/lib/api/hooks/use-mail'
 import { formatDate } from '@/lib/utils'
 import VirtualList from '@/components/virtual/VirtualList'
+import type { MailMessage, CursorPaginatedResponse } from '@/types'
 
 export default function MailFolderPage({ params }: { params: { folder: string } }) {
   const pathname = usePathname()
@@ -20,7 +21,10 @@ export default function MailFolderPage({ params }: { params: { folder: string } 
   }, [params.folder])
 
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } = useMail(folder)
-  const items = useMemo(() => (data?.pages ?? []).flatMap((p: any) => p.items ?? []), [data])
+  const items = useMemo(() => {
+    const pages = (data?.pages ?? []) as Array<CursorPaginatedResponse<MailMessage>>
+    return pages.flatMap((p) => p.items ?? [])
+  }, [data])
   const setMailRead = useSetMailRead(folder)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
@@ -58,12 +62,12 @@ export default function MailFolderPage({ params }: { params: { folder: string } 
               {items.length === 0 ? (
                 <div className="text-center text-muted-foreground">No messages in this folder</div>
               ) : (
-                <VirtualList
+                <VirtualList<MailMessage>
                   items={items}
                   estimateSize={88}
                   overscan={12}
                   className="h-[60vh]"
-                  row={(m: any) => (
+                  row={(m) => (
                     <Link key={m.id} href={`/mail/${folder}/${m.id}`}>
                       <Card className="transition-shadow hover:shadow-md">
                         <CardContent className="flex items-center justify-between gap-4 p-4">

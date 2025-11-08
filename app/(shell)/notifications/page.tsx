@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useNotifications, useMarkNotificationRead, useSubscribeNotifications, useMarkAllNotificationsAsRead } from '@/lib/api/hooks/use-notifications'
+import type { Notification, CursorPaginatedResponse } from '@/types'
 import { formatDate } from '@/lib/utils'
 
 export default function NotificationsPage() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotifications()
-  const items = (data?.pages || []).flatMap((p: any) => p.items || [])
+  const items = ((data?.pages || []) as Array<CursorPaginatedResponse<Notification>>).flatMap((p) => p.items || [])
   const markRead = useMarkNotificationRead()
   const markAll = useMarkAllNotificationsAsRead()
   const subscribe = useSubscribeNotifications()
@@ -31,7 +32,7 @@ export default function NotificationsPage() {
       </div>
 
       <div className="space-y-2">
-        {items.map((n: any) => (
+        {items.map((n: Notification) => (
           <Card key={n.id} className="transition-shadow hover:shadow-md">
             <CardContent className="flex items-center justify-between gap-4 p-4">
               <div className="min-w-0 flex-1">

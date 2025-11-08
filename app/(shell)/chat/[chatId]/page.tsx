@@ -10,7 +10,7 @@ const VirtualMessageStream = dynamic(
   { ssr: false, loading: () => <div className="h-full w-full animate-pulse bg-muted/30" /> }
 )
 import { ChatCompose } from '@/features/chat/components/chat-compose'
-import { Message, ChatMessageEvent } from '@/types'
+import { Message, ChatMessageEvent, type CursorPaginatedResponse } from '@/types'
 import { useChats, useChatMessages } from '@/lib/api/hooks/use-chats'
 import { useDomainEvents } from '@/lib/socket/hooks/use-domain-events'
 import { SOCKET_EVENTS } from '@/lib/constants'
@@ -37,9 +37,10 @@ export default function ChatDetailPage({ params }: { params: { chatId: string } 
 
   // Sync fetched messages into store
   useEffect(() => {
-    const items = (messagePages?.pages || []).flatMap((p: any) => p.items || [])
+    const pages = (messagePages?.pages || []) as Array<CursorPaginatedResponse<Message>>
+    const items = pages.flatMap((p) => p.items || [])
     if (items.length > 0) {
-      setMessages(params.chatId, items as any)
+      setMessages(params.chatId, items)
     }
   }, [messagePages, params.chatId, setMessages])
 

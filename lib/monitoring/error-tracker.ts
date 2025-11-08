@@ -27,7 +27,7 @@ export interface ErrorReport {
     sessionId?: string
     component?: string
     action?: string
-    [key: string]: any
+    [key: string]: unknown
   }
   /** Browser info */
   browser?: {
@@ -43,7 +43,7 @@ export interface Breadcrumb {
   timestamp: string
   category: 'navigation' | 'user' | 'console' | 'network' | 'lifecycle'
   message: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
   level?: 'info' | 'warning' | 'error'
 }
 
@@ -98,13 +98,13 @@ class ErrorTracker {
     // Console error capture (for debugging)
     if (process.env.NODE_ENV === 'development') {
       const originalError = console.error
-      console.error = (...args) => {
+      console.error = (...args: unknown[]) => {
         this.addBreadcrumb({
           category: 'console',
-          message: args.join(' '),
+          message: args.map((a) => String(a)).join(' '),
           level: 'error',
         })
-        originalError.apply(console, args)
+        originalError(...(args as unknown[]))
       }
     }
   }
@@ -267,12 +267,13 @@ class ErrorTracker {
   /**
    * Set user context
    */
-  setUser(userId: string, userData?: Record<string, any>) {
+  setUser(userId: string, userData?: Record<string, unknown>) {
+    // Narrow userData to unknown to avoid explicit any
     this.userId = userId
     this.addBreadcrumb({
       category: 'lifecycle',
       message: 'User identified',
-      data: { userId, ...userData },
+      data: { userId, ...(userData as Record<string, unknown> | undefined) },
     })
   }
 
@@ -385,7 +386,7 @@ export function addBreadcrumb(breadcrumb: Omit<Breadcrumb, 'timestamp'>) {
 /**
  * Set user context
  */
-export function setUser(userId: string, userData?: Record<string, any>) {
+export function setUser(userId: string, userData?: Record<string, unknown>) {
   getErrorTracker().setUser(userId, userData)
 }
 
@@ -418,17 +419,17 @@ export function captureNetworkRequest(
 /**
  * Performance monitoring wrapper
  */
-export function withErrorTracking<T extends (...args: any[]) => any>(
+export function withErrorTracking<T extends (...args: unknown[]) => unknown>(
   fn: T,
   context?: string
 ): T {
-  return ((...args: any[]) => {
+  return ((...args: Parameters<T>) => {
     try {
       const result = fn(...args)
       
       // Handle async functions
       if (result instanceof Promise) {
-        return result.catch((error) => {
+        return (result as Promise<ReturnType<T>>).catch((error) => {
           captureError(error, {
             context: { function: fn.name, customContext: context },
           })
@@ -436,7 +437,7 @@ export function withErrorTracking<T extends (...args: any[]) => any>(
         })
       }
       
-      return result
+      return result as ReturnType<T>
     } catch (error) {
       captureError(error as Error, {
         context: { function: fn.name, customContext: context },

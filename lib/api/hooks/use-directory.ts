@@ -9,7 +9,7 @@ export function useOrgTree() {
     queryFn: async () => {
       const res = await apiClient.get<OrgUnit>('/directory')
       if (!res.success || !res.data) {
-        const err: any = new Error('Failed to fetch org tree')
+        const err = new Error('Failed to fetch org tree') as Error & { code?: string }
         if (res.error?.code) err.code = res.error.code
         throw err
       }

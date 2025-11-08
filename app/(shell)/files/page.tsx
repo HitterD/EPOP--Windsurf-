@@ -30,6 +30,7 @@ import { useFiles, usePresignedUploadFlow } from '@/lib/api/hooks/use-files'
 import { toast } from 'sonner'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { RetentionTagDialog, getRetentionBadgeVariant, getRetentionLabel } from '@/features/files/components/retention-tag-dialog'
+import type { FileItem, CursorPaginatedResponse } from '@/types'
 
 export default function FilesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -43,9 +44,12 @@ export default function FilesPage() {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  const fileItems = useMemo(() => (data?.pages || []).flatMap((p: any) => p.items || []), [data])
-  const files = useMemo(
-    () => fileItems.filter((f: any) => f.name.toLowerCase().includes(searchQuery.toLowerCase())),
+  const fileItems = useMemo<FileItem[]>(() => {
+    const pages = (data?.pages || []) as Array<CursorPaginatedResponse<FileItem>>
+    return pages.flatMap((p) => p.items || [])
+  }, [data])
+  const files = useMemo<FileItem[]>(
+    () => fileItems.filter((f) => f.name.toLowerCase().includes(searchQuery.toLowerCase())),
     [fileItems, searchQuery]
   )
 
@@ -77,8 +81,9 @@ export default function FilesPage() {
         onProgress: (p) => setProgress(Math.round(p)),
       })
       toast.success('File uploaded successfully')
-    } catch (err: any) {
-      toast.error(err?.message || 'Upload failed')
+    } catch (err: unknown) {
+      const msg = (err && typeof (err as { message?: unknown }).message === 'string') ? String((err as { message: string }).message) : 'Upload failed'
+      toast.error(msg)
     } finally {
       setUploading(false)
       setProgress(0)
@@ -105,13 +110,13 @@ export default function FilesPage() {
       setSelectedFiles(new Set())
       setShowBulkActions(false)
     } else {
-      setSelectedFiles(new Set(files.map((f: any) => f.id)))
+      setSelectedFiles(new Set(files.map((f) => f.id)))
       setShowBulkActions(true)
     }
   }
 
   const handleBulkDownload = async () => {
-    const selectedFilesList = files.filter((f: any) => selectedFiles.has(f.id))
+    const selectedFilesList = files.filter((f) => selectedFiles.has(f.id))
     
     if (selectedFilesList.length === 0) {
       toast.error('No files selected')
@@ -121,6 +126,7 @@ export default function FilesPage() {
     // Single file - direct download
     if (selectedFilesList.length === 1) {
       const file = selectedFilesList[0]
+      if (!file) return
       toast.info(`Downloading ${file.name}...`)
       // Direct download would use: window.open(file.downloadUrl)
       toast.success(`Download started: ${file.name}`)
@@ -135,7 +141,7 @@ export default function FilesPage() {
       const { bulkDownloadAsZip, formatBulkDownloadSize, estimateZipSize } = await import('@/lib/utils/bulk-download')
       
       // Prepare file list (in production, would use actual download URLs)
-      const fileItems = selectedFilesList.map((f: any) => ({
+      const fileItems = selectedFilesList.map((f) => ({
         id: f.id,
         name: f.name,
         url: `/api/files/${f.id}/download`, // Mock URL
@@ -162,9 +168,10 @@ export default function FilesPage() {
         setShowBulkActions(false)
       }, 1000)
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Bulk download error:', error)
-      toast.error(error?.message || 'Failed to download files')
+      const msg = (error && typeof (error as { message?: unknown }).message === 'string') ? String((error as { message: string }).message) : 'Failed to download files'
+      toast.error(msg)
     }
   }
 
@@ -340,19 +347,21 @@ export default function FilesPage() {
                   </h3>
                   <p className="mb-2 text-xs text-muted-foreground">{formatBytes(file.size)}</p>
                   <div className="flex flex-wrap gap-1">
-                    <Badge variant="outline" className="text-xs">
-                      {file.context.name}
-                    </Badge>
-                    {file.context.id && (
+                    {file.context?.name && (
+                      <Badge variant="outline" className="text-xs">
+                        {file.context?.name}
+                      </Badge>
+                    )}
+                    {file.context?.id && (
                       <Badge variant="secondary" className="text-xs">
-                        {file.context.type === 'chat' && '💬 Chat'}
-                        {file.context.type === 'task' && '✓ Task'}
-                        {file.context.type === 'mail' && '📧 Mail'}
+                        {file.context?.type === 'chat' && '💬 Chat'}
+                        {file.context?.type === 'task' && '✓ Task'}
+                        {file.context?.type === 'mail' && '📧 Mail'}
                       </Badge>
                     )}
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {formatDate(file.createdAt, 'relative')} • v{file.version || 1}
+                    {formatDate(file.createdAt, 'relative')} • v{file.version ?? 1}
                   </p>
                 </CardContent>
               </Card>
@@ -368,6 +377,7 @@ export default function FilesPage() {
             <div className="relative" style={{ height: listVirtualizer.getTotalSize() }}>
               {listVirtualizer.getVirtualItems().map((vr) => {
                 const file = files[vr.index]
+                if (!file) return null
                 const Icon = getFileIcon(file.mimeType)
                 const isSelected = selectedFiles.has(file.id)
                 return (
@@ -390,16 +400,16 @@ export default function FilesPage() {
                         <div className="flex-1">
                           <h3 className="font-medium">{file.name}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {formatBytes(file.size)} • {file.uploadedBy} • {formatDate(file.createdAt, 'relative')} • v{file.version || 1}
+                            {formatBytes(file.size)} • {file.uploadedBy?.name ?? 'Unknown'} • {formatDate(file.createdAt, 'relative')} • v{file.version ?? 1}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline">{file.context.name}</Badge>
-                          {file.context.id && (
+                          {file.context?.name && <Badge variant="outline">{file.context?.name}</Badge>}
+                          {file.context?.id && (
                             <Badge variant="secondary" className="text-xs">
-                              {file.context.type === 'chat' && '💬'}
-                              {file.context.type === 'task' && '✓'}
-                              {file.context.type === 'mail' && '📧'}
+                              {file.context?.type === 'chat' && '💬'}
+                              {file.context?.type === 'task' && '✓'}
+                              {file.context?.type === 'mail' && '📧'}
                             </Badge>
                           )}
                         </div>

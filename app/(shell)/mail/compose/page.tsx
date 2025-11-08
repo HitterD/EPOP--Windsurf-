@@ -13,6 +13,7 @@ import { RichEditor } from '@/components/ui/rich-editor'
 import { useSendMail, useMailMessage } from '@/lib/api/hooks/use-mail'
 import { useFiles } from '@/lib/api/hooks/use-files'
 import { toast } from 'sonner'
+import type { FileItem, CursorPaginatedResponse } from '@/types'
 
 const schema = z.object({
   to: z.string().min(1, 'Recipient is required'),
@@ -35,7 +36,10 @@ export default function MailComposePage() {
 
   const { data: replyMsg } = useMailMessage(replyTo || forward)
   const { data: filesData } = useFiles()
-  const fileItems = useMemo(() => (filesData?.pages || []).flatMap((p: any) => p.items || []), [filesData])
+  const fileItems = useMemo(() => {
+    const pages = (filesData?.pages || []) as Array<CursorPaginatedResponse<FileItem>>
+    return pages.flatMap((p) => p.items || [])
+  }, [filesData])
 
   const [attachments, setAttachments] = useState<{ name: string; url: string; fileId?: string }[]>([])
   const [attName, setAttName] = useState('')
@@ -195,7 +199,7 @@ export default function MailComposePage() {
               <div className="rounded border p-3">
                 <div className="mb-2 text-sm font-medium">Your Files</div>
                 <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                  {fileItems.map((f: any) => (
+                  {fileItems.map((f: FileItem) => (
                     <div key={f.id} className="flex items-center justify-between rounded border p-2 text-sm">
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium" title={f.name}>{f.name}</div>

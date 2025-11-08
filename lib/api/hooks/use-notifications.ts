@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { Notification, NotificationPreferences, CursorPaginatedResponse } from '@/types'
 import { buildCursorQuery, withIdempotencyKey } from '../utils'
@@ -32,14 +32,17 @@ export function useMarkNotificationRead() {
       return true
     },
     onSuccess: (_data, notificationId) => {
-      qc.setQueryData(['notifications'], (old: any) => {
-        if (!old || !Array.isArray(old.pages)) return old
-        const pages = old.pages.map((p: any) => ({
-          ...p,
-          items: (p.items || []).map((n: any) => (n.id === notificationId ? { ...n, isRead: true } : n)),
-        }))
-        return { ...old, pages }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Notification>> | undefined>(
+        ['notifications'],
+        (old) => {
+          if (!old) return old
+          const pages = old.pages.map((p): CursorPaginatedResponse<Notification> => ({
+            ...p,
+            items: (p.items || []).map((n: Notification) => (n.id === notificationId ? { ...n, isRead: true } : n)),
+          }))
+          return { ...old, pages }
+        },
+      )
     },
   })
 }
@@ -52,14 +55,17 @@ export function useMarkAllNotificationsAsRead() {
       if (!res.success) throw new Error('Failed to mark notifications as read')
     },
     onSuccess: () => {
-      qc.setQueryData(['notifications'], (old: any) => {
-        if (!old || !Array.isArray(old.pages)) return old
-        const pages = old.pages.map((p: any) => ({
-          ...p,
-          items: (p.items || []).map((n: any) => ({ ...n, isRead: true })),
-        }))
-        return { ...old, pages }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Notification>> | undefined>(
+        ['notifications'],
+        (old) => {
+          if (!old) return old
+          const pages = old.pages.map((p): CursorPaginatedResponse<Notification> => ({
+            ...p,
+            items: (p.items || []).map((n: Notification) => ({ ...n, isRead: true })),
+          }))
+          return { ...old, pages }
+        },
+      )
       qc.invalidateQueries({ queryKey: ['unread-count'] })
     },
   })

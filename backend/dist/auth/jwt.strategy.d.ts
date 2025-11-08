@@ -4,6 +4,8 @@ export interface JwtPayload {
     email?: string;
     name?: string;
     typ?: string;
+    sid?: string;
+    adm?: boolean;
 }
 declare const JwtStrategy_base: new (...args: any) => any;
 export declare class JwtStrategy extends JwtStrategy_base {
@@ -12,6 +14,8 @@ export declare class JwtStrategy extends JwtStrategy_base {
         userId: string;
         email: string | undefined;
         name: string | undefined;
+        sid: string | undefined;
+        adm: boolean;
     }>;
 }
 export {};

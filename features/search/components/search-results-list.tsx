@@ -24,6 +24,7 @@ interface SearchResult {
     name?: string
     email?: string
     department?: string
+    uploadedBy?: string
   }
 }
 
@@ -34,7 +35,7 @@ interface SearchResultsListProps {
 }
 
 export function SearchResultsList({ results, query, onResultClick }: SearchResultsListProps) {
-  const highlightText = (text: string, query: string) => {
+  const highlightText = (text: string, query: string): React.ReactNode => {
     if (!query) return text
     
     const regex = new RegExp(`(${query})`, 'gi')
@@ -77,7 +78,10 @@ export function SearchResultsList({ results, query, onResultClick }: SearchResul
   )
 }
 
-function MessageResult({ result, query, highlightText }: any) {
+type HighlightFn = (text: string, query: string) => React.ReactNode
+type ResultRendererProps = { result: SearchResult; query: string; highlightText: HighlightFn }
+
+function MessageResult({ result, query, highlightText }: ResultRendererProps) {
   return (
     <div className="flex items-start gap-3">
       <div className="flex-shrink-0 mt-1">
@@ -89,7 +93,7 @@ function MessageResult({ result, query, highlightText }: any) {
         <div className="flex items-center gap-2 mb-1">
           {result.metadata?.sender && (
             <Avatar
-              src={result.metadata.sender.avatar}
+              src={result.metadata.sender.avatar || ''}
               alt={result.metadata.sender.name}
               size="xs"
             />
@@ -110,7 +114,7 @@ function MessageResult({ result, query, highlightText }: any) {
   )
 }
 
-function ProjectResult({ result, query, highlightText }: any) {
+function ProjectResult({ result, query, highlightText }: ResultRendererProps) {
   return (
     <div className="flex items-start gap-3">
       <div className="flex-shrink-0 mt-1">
@@ -147,13 +151,13 @@ function ProjectResult({ result, query, highlightText }: any) {
   )
 }
 
-function UserResult({ result, query, highlightText }: any) {
+function UserResult({ result, query, highlightText }: ResultRendererProps) {
   return (
     <div className="flex items-start gap-3">
       <div className="flex-shrink-0">
         <Avatar
-          src={result.metadata?.avatar}
-          alt={result.metadata?.name}
+          src={result.metadata?.avatar || ''}
+          alt={result.metadata?.name || ''}
           size="sm"
         />
       </div>
@@ -186,7 +190,7 @@ function UserResult({ result, query, highlightText }: any) {
   )
 }
 
-function FileResult({ result, query, highlightText }: any) {
+function FileResult({ result, query, highlightText }: ResultRendererProps) {
   return (
     <div className="flex items-start gap-3">
       <div className="flex-shrink-0 mt-1">

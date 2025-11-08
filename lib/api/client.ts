@@ -86,7 +86,7 @@ class ApiClient {
 
     const maxAttempts = 3
     let attempt = 0
-    let lastError: any = null
+    let lastError: unknown = null
 
     while (attempt < maxAttempts) {
       const controller = new AbortController()
@@ -108,7 +108,7 @@ class ApiClient {
         if (response.status === 304) {
           return {
             success: true,
-            data: null as any, // Caller should use cached data
+            data: (null as unknown) as T, // Caller should use cached data
           }
         }
 
@@ -194,7 +194,7 @@ class ApiClient {
     return this.request<T>(endpoint, { ...options, method: 'GET' })
   }
 
-  async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
@@ -202,7 +202,7 @@ class ApiClient {
     })
   }
 
-  async patch<T>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+  async patch<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',

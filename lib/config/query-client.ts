@@ -29,9 +29,10 @@ export const queryClient = new QueryClient({
       refetchOnMount: false,
       
       // Retry configuration with exponential backoff
-      retry: (failureCount, error: any) => {
+      retry: (failureCount: number, error: unknown) => {
         // Don't retry on 4xx errors (client errors)
-        if (error?.response?.status >= 400 && error?.response?.status < 500) {
+        const status = (error as { response?: { status?: number } })?.response?.status
+        if (typeof status === 'number' && status >= 400 && status < 500) {
           return false
         }
         // Retry up to 3 times for 5xx errors
@@ -146,7 +147,7 @@ export const queryKeys = {
   
   // Search
   search: {
-    query: (params: any) => ['search', params] as const,
+    query: (params: Record<string, unknown>) => ['search', params] as const,
   },
 }
 

@@ -13,18 +13,21 @@ type JestAxeConfigureOptions = {
 }
 
 type AxeResults = {
-  violations: any[]
+  violations: unknown[]
 }
 
 // Import jest-axe (install with: npm install -D jest-axe @types/jest-axe)
 let axe: (container: Element, options?: JestAxeConfigureOptions) => Promise<AxeResults>
-let toHaveNoViolations: any
+let toHaveNoViolations: unknown
+
+type JestMatcherResult = { pass: boolean; message: () => string }
+type ExpectExtendMapLike = Record<string, (...args: unknown[]) => JestMatcherResult | Promise<JestMatcherResult>>
 
 try {
   const jestAxe = require('jest-axe')
   axe = jestAxe.axe
-  toHaveNoViolations = jestAxe.toHaveNoViolations
-  expect.extend(toHaveNoViolations)
+  toHaveNoViolations = jestAxe.toHaveNoViolations as unknown
+  expect.extend(toHaveNoViolations as ExpectExtendMapLike)
 } catch (e) {
   // jest-axe not installed yet
   console.warn('jest-axe not installed. Run: npm install -D jest-axe')

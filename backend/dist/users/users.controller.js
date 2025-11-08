@@ -18,6 +18,9 @@ const users_service_1 = require("./users.service");
 const passport_1 = require("@nestjs/passport");
 const update_me_dto_1 = require("./dto/update-me.dto");
 const swagger_1 = require("@nestjs/swagger");
+const error_dto_1 = require("../common/dto/error.dto");
+const user_entity_1 = require("../entities/user.entity");
+const success_dto_1 = require("../common/dto/success.dto");
 let UsersController = class UsersController {
     users;
     constructor(users) {
@@ -36,6 +39,7 @@ let UsersController = class UsersController {
 exports.UsersController = UsersController;
 __decorate([
     (0, common_1.Get)('me'),
+    (0, swagger_1.ApiOkResponse)({ type: user_entity_1.User }),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -43,6 +47,7 @@ __decorate([
 ], UsersController.prototype, "me", null);
 __decorate([
     (0, common_1.Patch)('me'),
+    (0, swagger_1.ApiOkResponse)({ type: user_entity_1.User }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -51,6 +56,7 @@ __decorate([
 ], UsersController.prototype, "updateMe", null);
 __decorate([
     (0, common_1.Post)('me/presence'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)('presence')),
     __metadata("design:type", Function),
@@ -60,6 +66,7 @@ __decorate([
 exports.UsersController = UsersController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, swagger_1.ApiTags)('users'),
+    (0, swagger_1.ApiDefaultResponse)({ type: error_dto_1.ErrorResponse }),
     (0, common_1.Controller)('users'),
     __metadata("design:paramtypes", [users_service_1.UsersService])
 ], UsersController);

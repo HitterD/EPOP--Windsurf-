@@ -18,6 +18,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const mail_message_entity_1 = require("../entities/mail-message.entity");
 const outbox_service_1 = require("../events/outbox.service");
+const sanitize_html_1 = require("../common/utils/sanitize-html");
 let ComposeService = class ComposeService {
     mails;
     outbox;
@@ -42,7 +43,8 @@ let ComposeService = class ComposeService {
         return qb.getMany();
     }
     async send(fromUser, dto) {
-        const msg = await this.mails.save(this.mails.create({ fromUser, toUsers: dto.toUsers, subject: dto.subject ?? null, bodyHtml: dto.bodyHtml ?? null, folder: 'sent' }));
+        const clean = (0, sanitize_html_1.sanitizeHtml)(dto.bodyHtml ?? null);
+        const msg = await this.mails.save(this.mails.create({ fromUser, toUsers: dto.toUsers, subject: dto.subject ?? null, bodyHtml: clean, folder: 'sent' }));
         await this.outbox.append({ name: 'mail.message.created', aggregateType: 'mail', aggregateId: msg.id, userId: fromUser, payload: { mailId: msg.id, toUsers: dto.toUsers } });
         return msg;
     }

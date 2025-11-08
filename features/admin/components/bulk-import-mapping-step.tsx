@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -44,11 +44,7 @@ export function BulkImportMappingStep({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    parseCSVHeaders()
-  }, [file])
-
-  const parseCSVHeaders = async () => {
+  const parseCSVHeaders = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -63,7 +59,6 @@ export function BulkImportMappingStep({
       const headers = headerLine.split(',').map((h) => h.trim().replace(/^"|"$/g, ''))
       setCsvColumns(headers)
 
-      // Auto-detect mapping
       const autoMapping: BulkImportMapping = {}
       headers.forEach((header) => {
         const lowerHeader = header.toLowerCase()
@@ -78,12 +73,19 @@ export function BulkImportMappingStep({
       })
 
       setMapping(autoMapping)
-    } catch (err: any) {
-      setError(err.message || 'Failed to parse CSV headers')
+    } catch (err: unknown) {
+      const msg = (err && typeof (err as { message?: unknown }).message === 'string')
+        ? String((err as { message: string }).message)
+        : 'Failed to parse CSV headers'
+      setError(msg)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [file])
+
+  useEffect(() => {
+    parseCSVHeaders()
+  }, [parseCSVHeaders])
 
   const handleMappingChange = (csvColumn: string, field: string) => {
     setMapping((prev) => ({

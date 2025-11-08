@@ -12,6 +12,8 @@ import { useLogout } from '@/lib/api/hooks/use-auth'
 import { getInitials } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsAsRead } from '@/lib/api/hooks/use-notifications'
+import type { Notification, CursorPaginatedResponse } from '@/types'
+import type { InfiniteData } from '@tanstack/react-query'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +32,10 @@ export function TopHeader() {
   const { theme, setTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState('')
   const { data: notifData } = useNotifications()
-  const notifItems = (notifData?.pages || []).flatMap((p: any) => p.items || [])
-  const unreadCount = notifItems.filter((n: any) => !n.isRead).length
-  const latest = notifItems.slice(0, 10)
+  const notifItems = ((notifData?.pages || []) as Array<CursorPaginatedResponse<Notification>>)
+    .flatMap((p) => p.items || [])
+  const unreadCount = notifItems.filter((n) => !n.isRead).length
+  const latest: Notification[] = notifItems.slice(0, 10)
   const markRead = useMarkNotificationRead()
   const markAll = useMarkAllNotificationsAsRead()
 
@@ -133,7 +136,7 @@ export function TopHeader() {
               {latest.length === 0 ? (
                 <div className="px-2 py-2 text-sm text-muted-foreground">No notifications</div>
               ) : (
-                latest.map((n: any) => (
+                latest.map((n: Notification) => (
                   <div key={n.id} className="flex items-start justify-between gap-2 px-2 py-2">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium" title={n.title}>{n.title}</div>

@@ -27,6 +27,7 @@ let Message = class Message {
     editedAt;
     reactions;
     reads;
+    deletedAt;
 };
 exports.Message = Message;
 __decorate([
@@ -76,6 +77,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => message_read_entity_1.MessageRead, (r) => r.message),
     __metadata("design:type", Array)
 ], Message.prototype, "reads", void 0);
+__decorate([
+    (0, typeorm_1.DeleteDateColumn)({ name: 'deleted_at', type: 'timestamptz', nullable: true }),
+    __metadata("design:type", Object)
+], Message.prototype, "deletedAt", void 0);
 exports.Message = Message = __decorate([
     (0, typeorm_1.Entity)({ name: 'messages' })
 ], Message);

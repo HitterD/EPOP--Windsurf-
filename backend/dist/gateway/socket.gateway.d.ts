@@ -5,6 +5,7 @@ export declare class SocketGateway implements OnModuleInit, OnModuleDestroy {
     private readonly sub;
     private readonly pub;
     private readonly logger;
+    private typingCooldowns;
     server: Server;
     constructor(sub: Redis, pub: Redis);
     onModuleInit(): Promise<void>;
@@ -16,4 +17,22 @@ export declare class SocketGateway implements OnModuleInit, OnModuleDestroy {
     handleLeaveProject(socket: Socket, projectId: string): void;
     handleJoinUser(socket: Socket, userId: string): void;
     handleLeaveUser(socket: Socket, userId: string): void;
+    handleTypingStart(socket: Socket, body: {
+        chatId: string;
+        userId: string;
+        userName?: string;
+    }): void;
+    handleTypingStop(socket: Socket, body: {
+        chatId: string;
+        userId: string;
+    }): void;
+    handleTypingStartDot(socket: Socket, body: {
+        chatId: string;
+        userId: string;
+        userName?: string;
+    }): void;
+    handleTypingStopDot(socket: Socket, body: {
+        chatId: string;
+        userId: string;
+    }): void;
 }

@@ -102,7 +102,7 @@ export interface ReactionSummary {
   emoji: string
   count: number
   userIds: string[]
-  hasCurrentUser: boolean
+  hasCurrentUser?: boolean
 }
 
 export interface Reaction {
@@ -248,6 +248,7 @@ export interface FileItem {
     name: string
     avatar?: string
   }
+  version?: number
   status: FileStatus
   scanResult?: string
   context?: FileContext
@@ -301,7 +302,7 @@ export interface BulkImportResult {
 export interface BulkImportError {
   row: number
   field?: string
-  value?: any
+  value?: unknown
   message: string
   type: 'validation' | 'conflict' | 'system'
 }
@@ -317,7 +318,7 @@ export interface BulkImportPreview {
 export interface BulkImportRow {
   row: number
   isValid: boolean
-  data: Record<string, any>
+  data: Record<string, unknown>
   errors?: BulkImportError[]
 }
 
@@ -357,7 +358,7 @@ export interface AuditEvent {
   targetName: string
   details: string // Human-readable description
   changes?: AuditChanges
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   contextType?: 'org_unit' | 'user' | 'global'
   contextId?: string
   timestamp: string
@@ -365,8 +366,8 @@ export interface AuditEvent {
 }
 
 export interface AuditChanges {
-  before?: Record<string, any>
-  after?: Record<string, any>
+  before?: Record<string, unknown>
+  after?: Record<string, unknown>
   fields?: string[] // Changed field names
 }
 
@@ -429,7 +430,7 @@ export interface SearchHighlight {
   matches: string[]
 }
 
-export interface SearchResultItem<T = any> {
+export interface SearchResultItem<T = unknown> {
   item: T
   highlights?: SearchHighlight[]
   score: number
@@ -547,13 +548,13 @@ export interface AnalyticsSummary {
 }
 
 // Domain Event Types
-export interface DomainEvent<T = any> {
+export interface DomainEvent<T = unknown> {
   eventType: string
   ids: string[]
   patch?: Partial<T>
   timestamp: string
   actorId: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface ChatMessageEvent extends DomainEvent<Message> {
@@ -612,7 +613,7 @@ export interface SocketEvents {
 }
 
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {

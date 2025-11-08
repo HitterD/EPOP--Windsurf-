@@ -30,6 +30,18 @@ const search_module_1 = require("./search/search.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const admin_module_1 = require("./admin/admin.module");
 const presence_module_1 = require("./presence/presence.module");
+const idempotency_interceptor_1 = require("./common/interceptors/idempotency.interceptor");
+const last_modified_interceptor_1 = require("./common/interceptors/last-modified.interceptor");
+const all_exceptions_filter_1 = require("./common/filters/all-exceptions.filter");
+const metrics_module_1 = require("./metrics/metrics.module");
+const vitals_module_1 = require("./vitals/vitals.module");
+const metrics_interceptor_1 = require("./metrics/metrics.interceptor");
+const queues_module_1 = require("./queues/queues.module");
+const roles_guard_1 = require("./common/guards/roles.guard");
+const logging_interceptor_1 = require("./common/interceptors/logging.interceptor");
+const calendar_module_1 = require("./calendar/calendar.module");
+const analytics_module_1 = require("./analytics/analytics.module");
+const workflows_module_1 = require("./workflows/workflows.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -63,11 +75,23 @@ exports.AppModule = AppModule = __decorate([
             notifications_module_1.NotificationsModule,
             admin_module_1.AdminModule,
             presence_module_1.PresenceModule,
+            metrics_module_1.MetricsModule,
+            queues_module_1.QueuesModule,
+            vitals_module_1.VitalsModule,
+            calendar_module_1.CalendarModule,
+            analytics_module_1.AnalyticsModule,
+            workflows_module_1.WorkflowsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [
             app_service_1.AppService,
             { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },
+            { provide: core_1.APP_GUARD, useClass: roles_guard_1.RolesGuard },
+            { provide: core_1.APP_INTERCEPTOR, useClass: metrics_interceptor_1.MetricsInterceptor },
+            { provide: core_1.APP_INTERCEPTOR, useClass: logging_interceptor_1.LoggingInterceptor },
+            { provide: core_1.APP_INTERCEPTOR, useClass: idempotency_interceptor_1.IdempotencyInterceptor },
+            { provide: core_1.APP_INTERCEPTOR, useClass: last_modified_interceptor_1.LastModifiedInterceptor },
+            { provide: core_1.APP_FILTER, useClass: all_exceptions_filter_1.AllExceptionsFilter },
         ],
     })
 ], AppModule);

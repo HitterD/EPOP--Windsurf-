@@ -71,7 +71,7 @@ export const queryKeys = {
     list: (cursor?: string) => ['projects', 'list', cursor] as const,
     detail: (projectId: string) => ['projects', projectId] as const,
     tasks: (projectId: string, cursor?: string) => ['projects', projectId, 'tasks', cursor] as const,
-    analytics: (projectId: string, dateRange?: any) => ['projects', projectId, 'analytics', dateRange] as const,
+    analytics: (projectId: string, dateRange?: Record<string, unknown>) => ['projects', projectId, 'analytics', dateRange] as const,
   },
 
   // Files
@@ -84,7 +84,7 @@ export const queryKeys = {
   // Directory
   directory: {
     tree: () => ['directory', 'tree'] as const,
-    audit: (contextType?: string, contextId?: string, filters?: any) => ['audit', contextType, contextId, filters] as const,
+    audit: (contextType?: string, contextId?: string, filters?: Record<string, unknown>) => ['audit', contextType, contextId, filters] as const,
   },
 
   // Notifications
@@ -96,6 +96,6 @@ export const queryKeys = {
 
   // Search
   search: {
-    global: (query: string, filters?: any) => ['search', query, filters] as const,
+    global: (query: string, filters?: Record<string, unknown>) => ['search', query, filters] as const,
   },
 }

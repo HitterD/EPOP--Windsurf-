@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { FileItem, PresignedUploadResponse, CursorPaginatedResponse } from '@/types'
 import { buildCursorQuery, withIdempotencyKey } from '../utils'
@@ -109,17 +109,20 @@ export function useConfirmUpload() {
       return res.data
     },
     onSuccess: (file) => {
-      qc.setQueryData(['files'], (old: any) => {
-        if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
-        const first = old.pages[0]
-        return {
-          ...old,
-          pages: [
-            { ...first, items: [file, ...(first.items || [])] },
-            ...old.pages.slice(1),
-          ],
-        }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<FileItem>> | undefined>(
+        ['files'],
+        (old) => {
+          if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
+          const first = old.pages[0]!
+          return {
+            ...old,
+            pages: [
+              { ...first, items: [file, ...(first.items || [])] },
+              ...old.pages.slice(1),
+            ],
+          }
+        },
+      )
     },
   })
 }
@@ -182,14 +185,17 @@ export function useDeleteFile() {
       return true
     },
     onSuccess: (_ok, fileId) => {
-      qc.setQueryData(['files'], (old: any) => {
-        if (!old || !Array.isArray(old.pages)) return old
-        const pages = old.pages.map((p: any) => ({
-          ...p,
-          items: (p.items || []).filter((f: any) => f.id !== fileId),
-        }))
-        return { ...old, pages }
-      })
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<FileItem>> | undefined>(
+        ['files'],
+        (old) => {
+          if (!old) return old
+          const pages = old.pages.map((p): CursorPaginatedResponse<FileItem> => ({
+            ...p,
+            items: (p.items || []).filter((f: FileItem) => f.id !== fileId),
+          }))
+          return { ...old, pages }
+        },
+      )
     },
   })
 }

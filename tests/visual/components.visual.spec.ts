@@ -4,12 +4,12 @@
  * Tests visual appearance of components in Storybook
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 /**
  * Helper to navigate to a story and wait for it to load
  */
-async function gotoStory(page: any, storyId: string) {
+async function gotoStory(page: Page, storyId: string) {
   await page.goto(`/iframe.html?id=${storyId}&viewMode=story`)
   await page.waitForLoadState('networkidle')
   
@@ -21,7 +21,7 @@ async function gotoStory(page: any, storyId: string) {
 /**
  * Helper to capture component screenshot
  */
-async function captureComponent(page: any, selector: string = 'body') {
+async function captureComponent(page: Page, selector: string = 'body') {
   const element = await page.locator(selector)
   return await element.screenshot()
 }

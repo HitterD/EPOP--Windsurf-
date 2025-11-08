@@ -10,12 +10,13 @@ exports.MailerModule = void 0;
 const common_1 = require("@nestjs/common");
 const mailer_service_1 = require("./mailer.service");
 const config_1 = require("@nestjs/config");
+const queues_module_1 = require("../queues/queues.module");
 let MailerModule = class MailerModule {
 };
 exports.MailerModule = MailerModule;
 exports.MailerModule = MailerModule = __decorate([
     (0, common_1.Module)({
-        imports: [config_1.ConfigModule],
+        imports: [config_1.ConfigModule, queues_module_1.QueuesModule],
         providers: [mailer_service_1.MailerService],
         exports: [mailer_service_1.MailerService],
     })

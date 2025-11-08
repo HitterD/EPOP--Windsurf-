@@ -77,7 +77,7 @@ export function clearPerformance() {
 /**
  * Debounce function calls
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -99,16 +99,16 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Throttle function calls
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean
-  let lastResult: ReturnType<T>
+): (...args: Parameters<T>) => ReturnType<T> | undefined {
+  let inThrottle = false
+  let lastResult: ReturnType<T> | undefined
 
   return function executedFunction(...args: Parameters<T>) {
     if (!inThrottle) {
-      lastResult = func(...args)
+      lastResult = func(...args) as ReturnType<T>
       inThrottle = true
       setTimeout(() => {
         inThrottle = false
@@ -121,7 +121,7 @@ export function throttle<T extends (...args: any[]) => any>(
 /**
  * Lazy load components
  */
-export function lazyWithPreload<T extends React.ComponentType<any>>(
+export function lazyWithPreload<T extends React.ComponentType>(
   factory: () => Promise<{ default: T }>
 ) {
   const LazyComponent = React.lazy(factory)
@@ -163,7 +163,7 @@ export function useRenderPerformance(componentName: string) {
 /**
  * Memoize expensive calculations
  */
-export function memoize<T extends (...args: any[]) => any>(fn: T): T {
+export function memoize<T extends (...args: unknown[]) => unknown>(fn: T): T {
   const cache = new Map<string, ReturnType<T>>()
 
   return ((...args: Parameters<T>) => {
@@ -173,7 +173,7 @@ export function memoize<T extends (...args: any[]) => any>(fn: T): T {
       return cache.get(key)!
     }
 
-    const result = fn(...args)
+    const result = fn(...args) as ReturnType<T>
     cache.set(key, result)
     return result
   }) as T
@@ -182,7 +182,8 @@ export function memoize<T extends (...args: any[]) => any>(fn: T): T {
 /**
  * Report Web Vitals
  */
-export function reportWebVitals(metric: any) {
+import type { Metric } from 'web-vitals'
+export function reportWebVitals(metric: Metric) {
   if (process.env.NODE_ENV === 'development') {
     console.log(`[Web Vital] ${metric.name}:`, metric.value)
   }

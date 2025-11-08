@@ -14,4 +14,5 @@ export declare class Message {
     editedAt: Date | null;
     reactions: MessageReaction[];
     reads: MessageRead[];
+    deletedAt: Date | null;
 }

@@ -64,11 +64,11 @@ __decorate([
     __metadata("design:type", String)
 ], Task.prototype, "progress", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'start_at', type: 'date', nullable: true }),
+    (0, typeorm_1.Column)({ name: 'start_at', type: 'timestamptz', nullable: true }),
     __metadata("design:type", Object)
 ], Task.prototype, "startAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'due_at', type: 'date', nullable: true }),
+    (0, typeorm_1.Column)({ name: 'due_at', type: 'timestamptz', nullable: true }),
     __metadata("design:type", Object)
 ], Task.prototype, "dueAt", void 0);
 __decorate([

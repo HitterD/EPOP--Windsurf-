@@ -52,7 +52,7 @@ export function ProjectGridView({
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
-  const columnHelper = createColumnHelper<Task>()
+  const columnHelper = useMemo(() => createColumnHelper<Task>(), [])
 
   // Define columns
   const columns = useMemo(
@@ -131,7 +131,7 @@ export function ProjectGridView({
         },
       }),
     ],
-    [buckets]
+    [buckets, columnHelper]
   )
 
   const table = useReactTable({

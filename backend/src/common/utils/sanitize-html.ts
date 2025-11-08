@@ -11,7 +11,7 @@ export function sanitizeHtml(input: string | null | undefined): string | null {
   // Remove on* event handler attributes (e.g., onclick="...", onload='...')
   html = html.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
   // Neutralize javascript: URLs in href/src
-  html = html.replace(/(href|src)\s*=\s*("|')\s*javascript:[^\2]*\2/gi, '$1="#"')
+  html = html.replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1="#"')
   html = html.replace(/(href|src)\s*=\s*javascript:[^\s>]+/gi, '$1="#"')
   // Remove meta refresh
   html = html.replace(/<meta[^>]*http-equiv\s*=\s*("|')?refresh\1?[^>]*>/gi, '')

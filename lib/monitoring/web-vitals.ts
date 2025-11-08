@@ -65,8 +65,11 @@ async function sendToAnalytics(metric: Metric) {
   }
 
   // Also send to custom error tracking (if configured)
-  if (typeof window !== 'undefined' && (window as any).__reportMetric) {
-    (window as any).__reportMetric(payload)
+  if (typeof window !== 'undefined') {
+    const reporter = (window as unknown as { __reportMetric?: (p: VitalsPayload) => void }).__reportMetric
+    if (typeof reporter === 'function') {
+      reporter(payload)
+    }
   }
 }
 
@@ -147,7 +150,7 @@ export function measurePerformance(name: string, startMark: string, endMark: str
 /**
  * Report custom metric
  */
-export function reportCustomMetric(name: string, value: number, metadata?: Record<string, any>) {
+export function reportCustomMetric(name: string, value: number, metadata?: Record<string, unknown>) {
   const payload = {
     name: `custom.${name}`,
     value,

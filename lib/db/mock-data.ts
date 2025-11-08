@@ -318,6 +318,14 @@ export class MockDatabase {
     return user
   }
 
+  getAllProjects(): Project[] {
+    return Array.from(this.projects.values())
+  }
+
+  getAllChats(): Chat[] {
+    return Array.from(this.chats.values())
+  }
+
   // Org Directory methods
   getOrgTree(): OrgUnit {
     return this.orgTree as OrgUnit
@@ -450,6 +458,11 @@ export class MockDatabase {
 
   deleteProject(projectId: string): boolean {
     return this.projects.delete(projectId)
+  }
+
+  updateProject(project: Project): Project {
+    this.projects.set(project.id, project)
+    return project
   }
 
   // Bucket helpers

@@ -192,7 +192,7 @@ export default function CalendarPage() {
           </Button>
         </div>
 
-        <Tabs value={view} onValueChange={(v) => setView(v as any)} className="w-auto">
+        <Tabs value={view} onValueChange={(v) => setView(v as 'month' | 'week' | 'day' | 'agenda')} className="w-auto">
           <TabsList>
             <TabsTrigger value="month">Month</TabsTrigger>
             <TabsTrigger value="week">Week</TabsTrigger>

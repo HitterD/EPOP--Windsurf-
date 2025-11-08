@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, LessThan } from 'typeorm'
+import { Repository, LessThan, type FindOptionsWhere } from 'typeorm'
 import { FileEntity } from '../entities/file.entity'
 import { FileLink } from '../entities/file-link.entity'
 import { ConfigService } from '@nestjs/config'
@@ -101,18 +101,21 @@ export class FilesService {
           const resp = await this.s3.send(new CopyObjectCommand({ Bucket: this.bucket, CopySource: `/${this.bucket}/${file.s3Key}`, Key: destKey }))
           try { await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: file.s3Key })) } catch {}
           file.s3Key = destKey
-          try { file.s3VersionId = (resp as any)?.VersionId ?? file.s3VersionId ?? null } catch {}
+          try {
+            const versionId = (resp as { VersionId?: string } | undefined)?.VersionId
+            file.s3VersionId = versionId ?? file.s3VersionId ?? null
+          } catch {}
           await this.files.save(file)
         }
       }
     } catch {}
     // Enqueue antivirus scan (if enabled)
     try {
-      file.status = 'scanning' as any
+      file.status = 'scanning'
       await this.files.save(file)
       await this.fileScanQueue.add('scan', { fileId: String(file.id) }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 200, removeOnFail: 500 })
     } catch {}
-    const link = await this.links.save(this.links.create({ file: { id: fileId } as any, refTable: dto.refTable, refId: dto.refId }))
+    const link = await this.links.save(this.links.create({ file: ({ id: fileId } as unknown as FileEntity), refTable: dto.refTable, refId: dto.refId }))
     try { await this.searchQueue.add('index_doc', { entity: 'files', id: String(file.id) }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 200, removeOnFail: 500 }) } catch {}
     return { success: true, linkId: link.id }
   }
@@ -132,14 +135,15 @@ export class FilesService {
   }
 
   async listMineCursor(userId: string, limit = 20, cursor: string | null = null) {
-    const where: any = { ownerId: userId }
     const decoded = decodeCursor(cursor)
-    if (decoded?.id) where.id = LessThan(decoded.id)
     const take = Math.max(1, Math.min(100, Number(limit))) + 1
-    const rows = await this.files.find({ where, order: { id: 'DESC' as any }, take })
+    const where: FindOptionsWhere<FileEntity> = decoded?.id
+      ? ({ ownerId: userId, id: LessThan(decoded.id) } as unknown as FindOptionsWhere<FileEntity>)
+      : ({ ownerId: userId } as unknown as FindOptionsWhere<FileEntity>)
+    const rows = await this.files.find({ where, order: { id: 'DESC' }, take })
     const items = rows.slice(0, take - 1).reverse()
     const hasMore = rows.length === take
-    const nextCursor = hasMore && items.length ? encodeCursor({ id: String(items[0].id) }) : undefined
+    const nextCursor = hasMore && items.length ? encodeCursor({ id: String(items[0]!.id) }) : undefined
     return { items, nextCursor, hasMore }
   }
 
@@ -150,10 +154,10 @@ export class FilesService {
   ) {
     const file = await this.files.findOne({ where: { id } })
     if (!file) throw new NotFoundException('File not found')
-    file.status = status as any
+    file.status = status
     if (status === 'ready' || status === 'infected' || status === 'failed') {
       file.scanResult = scanResult
-      file.scannedAt = new Date() as any
+      file.scannedAt = new Date()
     }
     await this.files.save(file)
     return { success: true }

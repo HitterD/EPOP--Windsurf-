@@ -1,6 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -22,7 +23,7 @@ type SearchResultType = 'message' | 'project' | 'user' | 'file'
 interface SearchResult {
   id: string
   type: SearchResultType
-  item: any
+  item: Record<string, unknown>
   highlights?: Array<{ field: string; matches: string[] }>
 }
 
@@ -110,12 +111,12 @@ export function SearchPreviewPane({ result, onClose }: SearchPreviewPaneProps) {
 }
 
 // Message Preview
-function MessagePreview({ item, highlights }: { item: any; highlights?: any[] }) {
+function MessagePreview({ item, highlights }: { item: Record<string, unknown>; highlights?: Array<{ field: string; matches: string[] }> }) {
   return (
     <div className="space-y-4">
       <div>
         <h3 className="mb-2 text-sm font-medium text-muted-foreground">Message Content</h3>
-        <p className="rounded-lg bg-muted/50 p-4 text-sm">{item.content}</p>
+        <p className="rounded-lg bg-muted/50 p-4 text-sm">{(item as { content?: string }).content}</p>
       </div>
 
       {highlights && highlights.length > 0 && (
@@ -136,11 +137,11 @@ function MessagePreview({ item, highlights }: { item: any; highlights?: any[] })
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
           <p className="text-muted-foreground">Chat</p>
-          <p className="font-medium">{item.chatId ? `Chat ${item.chatId}` : 'Direct Message'}</p>
+          <p className="font-medium">{(item as { chatId?: string }).chatId ? `Chat ${(item as { chatId?: string }).chatId}` : 'Direct Message'}</p>
         </div>
         <div>
           <p className="text-muted-foreground">Sent</p>
-          <p className="font-medium">{formatDate(item.createdAt, 'long')}</p>
+          <p className="font-medium">{formatDate((item as { createdAt?: string }).createdAt as string, 'long')}</p>
         </div>
       </div>
     </div>
@@ -148,13 +149,13 @@ function MessagePreview({ item, highlights }: { item: any; highlights?: any[] })
 }
 
 // Project Preview
-function ProjectPreview({ item, highlights }: { item: any; highlights?: any[] }) {
+function ProjectPreview({ item, highlights }: { item: Record<string, unknown>; highlights?: Array<{ field: string; matches: string[] }> }) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="mb-2 text-2xl font-bold">{item.name}</h2>
-        {item.description && (
-          <p className="text-sm text-muted-foreground">{item.description}</p>
+        <h2 className="mb-2 text-2xl font-bold">{(item as { name?: string }).name}</h2>
+        {(item as { description?: string }).description && (
+          <p className="text-sm text-muted-foreground">{(item as { description?: string }).description}</p>
         )}
       </div>
 
@@ -163,7 +164,7 @@ function ProjectPreview({ item, highlights }: { item: any; highlights?: any[] })
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Team Members</p>
-          <p className="text-2xl font-bold">{item.memberIds?.length || 0}</p>
+          <p className="text-2xl font-bold">{((item as { memberIds?: unknown[] }).memberIds?.length) || 0}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Status</p>
@@ -173,15 +174,15 @@ function ProjectPreview({ item, highlights }: { item: any; highlights?: any[] })
         </div>
       </div>
 
-      {item.color && (
+      {(item as { color?: string }).color && (
         <div>
           <p className="mb-2 text-sm text-muted-foreground">Project Color</p>
           <div className="flex items-center gap-2">
             <div 
               className="h-8 w-8 rounded-md border" 
-              style={{ backgroundColor: item.color }}
+              style={{ backgroundColor: (item as { color?: string }).color }}
             />
-            <span className="text-xs font-mono">{item.color}</span>
+            <span className="text-xs font-mono">{(item as { color?: string }).color}</span>
           </div>
         </div>
       )}
@@ -203,16 +204,16 @@ function ProjectPreview({ item, highlights }: { item: any; highlights?: any[] })
 }
 
 // User Preview
-function UserPreview({ item, highlights }: { item: any; highlights?: any[] }) {
+function UserPreview({ item, highlights }: { item: Record<string, unknown>; highlights?: Array<{ field: string; matches: string[] }> }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground">
-          {item.name?.charAt(0) || 'U'}
+          {((item as { name?: string }).name?.charAt(0)) || 'U'}
         </div>
         <div>
-          <h2 className="text-xl font-bold">{item.name}</h2>
-          <p className="text-sm text-muted-foreground">{item.email}</p>
+          <h2 className="text-xl font-bold">{(item as { name?: string }).name}</h2>
+          <p className="text-sm text-muted-foreground">{(item as { email?: string }).email}</p>
         </div>
       </div>
 
@@ -222,7 +223,7 @@ function UserPreview({ item, highlights }: { item: any; highlights?: any[] }) {
         <div>
           <p className="text-muted-foreground">Role</p>
           <Badge variant="secondary" className="mt-1">
-            {item.role || 'User'}
+            {(item as { role?: string }).role || 'User'}
           </Badge>
         </div>
         <div>
@@ -233,17 +234,17 @@ function UserPreview({ item, highlights }: { item: any; highlights?: any[] }) {
         </div>
       </div>
 
-      {item.department && (
+      {(item as { department?: string }).department && (
         <div>
           <p className="text-sm text-muted-foreground">Department</p>
-          <p className="font-medium">{item.department}</p>
+          <p className="font-medium">{(item as { department?: string }).department}</p>
         </div>
       )}
 
-      {item.location && (
+      {(item as { location?: string }).location && (
         <div className="flex items-center gap-2 text-sm">
           <MapPin className="h-4 w-4 text-muted-foreground" />
-          <span>{item.location}</span>
+          <span>{(item as { location?: string }).location}</span>
         </div>
       )}
     </div>
@@ -251,7 +252,7 @@ function UserPreview({ item, highlights }: { item: any; highlights?: any[] }) {
 }
 
 // File Preview
-function FilePreview({ item, highlights }: { item: any; highlights?: any[] }) {
+function FilePreview({ item, highlights }: { item: Record<string, unknown>; highlights?: Array<{ field: string; matches: string[] }> }) {
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -261,9 +262,10 @@ function FilePreview({ item, highlights }: { item: any; highlights?: any[] }) {
   }
 
   const getFileIcon = () => {
-    if (item.mimeType?.startsWith('image/')) return '🖼️'
-    if (item.mimeType?.includes('pdf')) return '📄'
-    if (item.mimeType?.includes('video')) return '🎥'
+    const mimeType = (item as { mimeType?: string }).mimeType
+    if (mimeType?.startsWith('image/')) return '🖼️'
+    if (mimeType?.includes('pdf')) return '📄'
+    if (mimeType?.includes('video')) return '🎥'
     return '📎'
   }
 
@@ -274,8 +276,8 @@ function FilePreview({ item, highlights }: { item: any; highlights?: any[] }) {
           {getFileIcon()}
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-bold">{item.name}</h2>
-          <p className="text-sm text-muted-foreground">{formatBytes(item.size)}</p>
+          <h2 className="text-lg font-bold">{(item as { name?: string }).name}</h2>
+          <p className="text-sm text-muted-foreground">{formatBytes(((item as { size?: number }).size ?? 0) as number)}</p>
         </div>
       </div>
 
@@ -284,42 +286,46 @@ function FilePreview({ item, highlights }: { item: any; highlights?: any[] }) {
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
           <p className="text-muted-foreground">Type</p>
-          <p className="font-medium">{item.mimeType || 'Unknown'}</p>
+          <p className="font-medium">{(item as { mimeType?: string }).mimeType || 'Unknown'}</p>
         </div>
         <div>
           <p className="text-muted-foreground">Uploaded</p>
-          <p className="font-medium">{formatDate(item.createdAt, 'relative')}</p>
+          <p className="font-medium">{formatDate(((item as { createdAt?: string }).createdAt as string), 'relative')}</p>
         </div>
       </div>
 
-      {item.context && (
+      {(item as { context?: { type?: string } }).context && (
         <div>
           <p className="mb-2 text-sm text-muted-foreground">Origin</p>
           <Badge variant="secondary">
-            {item.context.type === 'chat' && '💬 Chat'}
-            {item.context.type === 'task' && '✓ Task'}
-            {item.context.type === 'mail' && '📧 Mail'}
-            {item.context.type === 'general' && '📁 General'}
+            {((item as { context?: { type?: string } }).context?.type) === 'chat' && '💬 Chat'}
+            {((item as { context?: { type?: string } }).context?.type) === 'task' && '✓ Task'}
+            {((item as { context?: { type?: string } }).context?.type) === 'mail' && '📧 Mail'}
+            {((item as { context?: { type?: string } }).context?.type) === 'general' && '📁 General'}
           </Badge>
         </div>
       )}
 
-      {item.version && (
+      {(item as { version?: string | number }).version && (
         <div>
           <p className="text-sm text-muted-foreground">Version</p>
-          <p className="font-medium">v{item.version}</p>
+          <p className="font-medium">v{(item as { version?: string | number }).version}</p>
         </div>
       )}
 
       {/* Thumbnail preview for images */}
-      {item.mimeType?.startsWith('image/') && item.thumbnailUrl && (
+      {((item as { mimeType?: string }).mimeType?.startsWith('image/')) && (item as { thumbnailUrl?: string }).thumbnailUrl && (
         <div>
           <p className="mb-2 text-sm text-muted-foreground">Preview</p>
-          <img 
-            src={item.thumbnailUrl} 
-            alt={item.name}
-            className="max-h-48 rounded-lg border object-contain"
-          />
+          <div className="relative h-48 w-full">
+            <Image 
+              src={(item as { thumbnailUrl?: string }).thumbnailUrl as string} 
+              alt={(item as { name?: string }).name as string}
+              fill
+              unoptimized
+              className="object-contain rounded-lg border"
+            />
+          </div>
         </div>
       )}
     </div>

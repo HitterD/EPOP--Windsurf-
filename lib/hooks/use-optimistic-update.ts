@@ -61,7 +61,7 @@ export interface UseOptimisticUpdateReturn<T> {
  * }
  * ```
  */
-export function useOptimisticUpdate<T extends Record<string, any>>(
+export function useOptimisticUpdate<T extends Record<string, unknown>>(
   options: UseOptimisticUpdateOptions<T> = {}
 ): UseOptimisticUpdateReturn<T> {
   const {
@@ -242,7 +242,7 @@ export interface UseOptimisticListOptions<T> {
   idField?: string
 }
 
-export function useOptimisticList<T extends Record<string, any>>({
+export function useOptimisticList<T extends Record<string, unknown>>({
   items: serverItems,
   idField = 'id',
 }: UseOptimisticListOptions<T>) {
@@ -282,7 +282,7 @@ export function useOptimisticList<T extends Record<string, any>>({
       updates: Partial<T>,
       serverAction: (id: string | number, updates: Partial<T>) => Promise<T>
     ): Promise<T | null> => {
-      const existingItem = items.find((item) => item.data[idField] === id)
+      const existingItem = items.find((item) => (item.data as Record<string, unknown>)[idField] === id)
       if (!existingItem) return null
 
       const optimisticItem = { ...existingItem.data, ...updates }
@@ -307,7 +307,7 @@ export function useOptimisticList<T extends Record<string, any>>({
     ): Promise<boolean> => {
       // Mark as deleting optimistically
       const filteredItems = items.filter(
-        (item) => item.data[idField] !== id
+        (item) => (item.data as Record<string, unknown>)[idField] !== id
       )
 
       try {

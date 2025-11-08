@@ -12,7 +12,7 @@ export interface CSVExportOptions {
 /**
  * Convert array of objects to CSV string
  */
-export function convertToCSV<T extends Record<string, any>>(
+export function convertToCSV<T extends Record<string, unknown>>(
   data: T[],
   options: CSVExportOptions = {}
 ): string {
@@ -25,7 +25,7 @@ export function convertToCSV<T extends Record<string, any>>(
   const headers = Object.keys(first)
 
   // Escape CSV values
-  const escapeValue = (value: any): string => {
+  const escapeValue = (value: unknown): string => {
     if (value === null || value === undefined) return ''
     const str = String(value)
     // Escape quotes and wrap in quotes if contains delimiter, newline, or quote
@@ -73,7 +73,7 @@ export function downloadCSV(csvContent: string, filename: string = 'export.csv')
 /**
  * Export data to CSV and download
  */
-export function exportToCSV<T extends Record<string, any>>(
+export function exportToCSV<T extends Record<string, unknown>>(
   data: T[],
   filename?: string,
   options?: CSVExportOptions

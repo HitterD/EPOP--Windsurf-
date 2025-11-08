@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useDropzone, type DropzoneOptions } from "react-dropzone"
+import Image from "next/image"
+import { useDropzone, type DropzoneOptions, type FileRejection } from "react-dropzone"
 import { Upload, File, X, CheckCircle, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "./button"
@@ -36,7 +37,7 @@ export function FileDropzone({
   const [files, setFiles] = React.useState<FileWithPreview[]>([])
 
   const onDrop = React.useCallback(
-    (acceptedFiles: File[], rejectedFiles: any[]) => {
+    (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
       if (acceptedFiles?.length) {
         const newFiles = acceptedFiles.map((file) =>
           Object.assign(file, {
@@ -48,7 +49,7 @@ export function FileDropzone({
       }
 
       if (rejectedFiles?.length) {
-        onFilesRejected?.(rejectedFiles.map((r) => r.file))
+        onFilesRejected?.(rejectedFiles.map((r) => r.file as File))
       }
     },
     [onFilesSelected, onFilesRejected]
@@ -142,9 +143,12 @@ export function FileDropzone({
                 {/* File Icon/Preview */}
                 <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
                   {file.type.startsWith("image/") && file.preview ? (
-                    <img
+                    <Image
                       src={file.preview}
                       alt={file.name}
+                      width={40}
+                      height={40}
+                      unoptimized
                       className="h-10 w-10 rounded object-cover"
                       onLoad={() => {
                         if (file.preview) {

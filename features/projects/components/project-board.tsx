@@ -19,7 +19,8 @@ import { cn } from '@/lib/utils'
 import { useProjectBuckets, useProjectTasks, useAddBucket, useMoveTask, useReorderTasks } from '@/lib/api/hooks/use-projects'
 import { useSocket } from '@/lib/socket/hooks/use-socket'
 import { useProjectTaskEvents } from '@/lib/socket/hooks/use-project-events'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
+import type { CursorPaginatedResponse } from '@/types'
 
 interface ProjectBoardProps {
   projectId: string
@@ -29,7 +30,10 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const { data: buckets } = useProjectBuckets(projectId)
   const { data: tasksData } = useProjectTasks(projectId)
-  const tasks = useMemo(() => (tasksData?.pages || []).flatMap((p: any) => p.items || []), [tasksData])
+  const tasks = useMemo(() => {
+    const pages = (tasksData?.pages || []) as Array<CursorPaginatedResponse<Task>>
+    return pages.flatMap((p) => p.items || [])
+  }, [tasksData])
   const addBucket = useAddBucket(projectId)
   const moveTask = useMoveTask(projectId)
   const reorderTasks = useReorderTasks(projectId)
@@ -73,14 +77,14 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
 
       // Optimistic: update bucketId
       const cacheKey = ['project-tasks', projectId] as const
-      const prev = qc.getQueryData(cacheKey)
-      qc.setQueryData(cacheKey, (old: any) => {
+      const prev = qc.getQueryData<InfiniteData<CursorPaginatedResponse<Task>> | undefined>(cacheKey)
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Task>> | undefined>(cacheKey, (old) => {
         if (!old) return old
         return {
           ...old,
-          pages: old.pages.map((page: any) => ({
+          pages: old.pages.map((page): CursorPaginatedResponse<Task> => ({
             ...page,
-            items: page.items.map((t: Task) => (t.id === taskId ? { ...t, bucketId: toBucketId } : t)),
+            items: (page.items || []).map((t: Task) => (t.id === taskId ? { ...t, bucketId: toBucketId } : t)),
           })),
         }
       })
@@ -92,7 +96,7 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
             if (prev) qc.setQueryData(cacheKey, prev)
           },
           onSettled: () => {
-            qc.invalidateQueries({ queryKey: cacheKey as unknown as any })
+            qc.invalidateQueries({ queryKey: cacheKey })
             qc.invalidateQueries({ queryKey: ['project-buckets', projectId] })
           },
         }

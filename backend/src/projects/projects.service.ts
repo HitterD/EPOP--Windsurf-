@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, LessThan, In } from 'typeorm'
+import { Repository, LessThan, In, type FindOptionsWhere } from 'typeorm'
 import { Project } from '../entities/project.entity'
 import { ProjectMember } from '../entities/project-member.entity'
 import { TaskBucket } from '../entities/task-bucket.entity'
@@ -10,6 +10,7 @@ import { TaskComment } from '../entities/task-comment.entity'
 import { TaskAssignee } from '../entities/task-assignee.entity'
 import { OutboxService } from '../events/outbox.service'
 import { decodeCursor, encodeCursor } from '../common/pagination/cursor'
+import { User } from '../entities/user.entity'
 
 @Injectable()
 export class ProjectsService {
@@ -36,7 +37,7 @@ export class ProjectsService {
   }
 
   async createProject(userId: string, dto: { name: string; description?: string | null }) {
-    const project = await this.projects.save(this.projects.create({ name: dto.name, description: dto.description ?? null, owner: { id: userId } as any }))
+    const project = await this.projects.save(this.projects.create({ name: dto.name, description: dto.description ?? null, owner: ({ id: userId } as unknown as User) }))
     await this.members.save(this.members.create({ projectId: project.id, userId }))
     await this.outbox.append({ name: 'project.task.updated', aggregateType: 'project', aggregateId: project.id, userId, payload: { projectId: project.id, action: 'created' } })
     return project
@@ -49,7 +50,7 @@ export class ProjectsService {
   }
 
   async createBucket(actorId: string, projectId: string, name: string, position: number) {
-    const bucket = await this.buckets.save(this.buckets.create({ project: { id: projectId } as any, name, position }))
+    const bucket = await this.buckets.save(this.buckets.create({ project: ({ id: projectId } as unknown as Project), name, position }))
     await this.outbox.append({ name: 'project.task.updated', aggregateType: 'project', aggregateId: projectId, userId: actorId, payload: { projectId, action: 'bucket_created', bucketId: bucket.id } })
     return bucket
   }
@@ -57,7 +58,7 @@ export class ProjectsService {
   async createTask(actorId: string, dto: { projectId: string; bucketId?: string | null; title: string; description?: string | null; position: number }) {
     const member = await this.members.findOne({ where: { projectId: dto.projectId, userId: actorId } })
     if (!member) throw new ForbiddenException()
-    const task = await this.tasks.save(this.tasks.create({ project: { id: dto.projectId } as any, bucket: dto.bucketId ? ({ id: dto.bucketId } as any) : null, title: dto.title, description: dto.description ?? null, position: dto.position, createdBy: { id: actorId } as any }))
+    const task = await this.tasks.save(this.tasks.create({ project: ({ id: dto.projectId } as unknown as Project), bucket: dto.bucketId ? (({ id: dto.bucketId } as unknown) as TaskBucket) : null, title: dto.title, description: dto.description ?? null, position: dto.position, createdBy: ({ id: actorId } as unknown as User) }))
     await this.outbox.append({ name: 'project.task.created', aggregateType: 'task', aggregateId: task.id, userId: actorId, payload: { projectId: dto.projectId, bucketId: dto.bucketId ?? null, taskId: task.id } })
     return task
   }
@@ -76,7 +77,7 @@ export class ProjectsService {
       .andWhere(targetBucketId === null ? 'bucket_id IS NULL' : 'bucket_id = :bucketId', { bucketId: targetBucketId ?? undefined })
       .andWhere('position >= :pos', { pos: dto.position })
       .execute()
-    task.bucket = targetBucketId ? ({ id: targetBucketId } as any) : null
+    task.bucket = targetBucketId ? (({ id: targetBucketId } as unknown) as TaskBucket) : null
     task.position = dto.position
     await this.tasks.save(task)
     await this.outbox.append({ name: 'project.task.moved', aggregateType: 'task', aggregateId: taskId, userId: actorId, payload: { projectId: dto.projectId, bucketId: dto.bucketId, position: dto.position } })
@@ -88,7 +89,7 @@ export class ProjectsService {
     if (!task) throw new NotFoundException('Task not found')
     const member = await this.members.findOne({ where: { projectId: task.project.id, userId: actorId } })
     if (!member) throw new ForbiddenException()
-    const comment = await this.comments.save(this.comments.create({ task: { id: taskId } as any, user: { id: actorId } as any, body }))
+    const comment = await this.comments.save(this.comments.create({ task: ({ id: taskId } as unknown as Task), user: ({ id: actorId } as unknown as User), body }))
     await this.outbox.append({ name: 'project.task.commented', aggregateType: 'task', aggregateId: taskId, userId: actorId, payload: { projectId: task.project.id, taskId, commentId: comment.id } })
     return comment
   }
@@ -96,14 +97,14 @@ export class ProjectsService {
   async listProjectTasksCursor(userId: string, projectId: string, limit = 20, cursor: string | null = null) {
     const member = await this.members.findOne({ where: { projectId, userId } })
     if (!member) throw new ForbiddenException()
-    const where: any = { project: { id: projectId } }
+    const where = { project: { id: projectId } } as unknown as FindOptionsWhere<Task>
     const decoded = decodeCursor(cursor)
     if (decoded?.id) where.id = LessThan(decoded.id)
     const take = Math.max(1, Math.min(100, Number(limit))) + 1
     const rows = await this.tasks.find({ where, order: { id: 'DESC' }, take, relations: { project: true } })
     const items = rows.slice(0, take - 1).reverse()
     const hasMore = rows.length === take
-    const nextCursor = hasMore && items.length ? encodeCursor({ id: String(items[0].id) }) : undefined
+    const nextCursor = hasMore && items.length ? encodeCursor({ id: String(items[0]!.id) }) : undefined
     return { items, nextCursor, hasMore }
   }
 
@@ -138,7 +139,7 @@ export class ProjectsService {
     if (!member) throw new ForbiddenException()
     // Ensure all tasks belong to target bucket & project
     if (taskIds && taskIds.length) {
-      const tasks = await this.tasks.find({ where: { id: In(taskIds), project: { id: projectId } as any, bucket: { id: bucketId } as any } })
+      const tasks = await this.tasks.find({ where: ({ id: In(taskIds), project: { id: projectId }, bucket: { id: bucketId } } as unknown as FindOptionsWhere<Task>) })
       const found = new Set(tasks.map((t) => String(t.id)))
       const pairs: Array<[string, number]> = []
       let pos = 0
@@ -165,21 +166,14 @@ export class ProjectsService {
   async listDependencies(userId: string, projectId: string, taskId?: string | null) {
     const member = await this.members.findOne({ where: { projectId, userId } })
     if (!member) throw new ForbiddenException()
-    const where: any = {
-      predecessor: { project: { id: projectId } as any } as any,
-      successor: { project: { id: projectId } as any } as any,
-    }
-    if (taskId) {
-      // Filter edges touching the task
-      where["predecessor"] = [{ project: { id: projectId } as any, id: taskId } as any, { project: { id: projectId } as any } as any] as any
-    }
+    const baseWhere = ({ predecessor: { project: { id: projectId } }, successor: { project: { id: projectId } } } as unknown) as FindOptionsWhere<TaskDependency>
     const edges = await this.deps.find({
       where: taskId
-        ? [
-            { predecessor: { id: taskId } as any, successor: { project: { id: projectId } as any } as any },
-            { predecessor: { project: { id: projectId } as any } as any, successor: { id: taskId } as any },
-          ]
-        : where,
+        ? ([
+            ({ predecessor: { id: taskId }, successor: { project: { id: projectId } } } as unknown) as FindOptionsWhere<TaskDependency>,
+            ({ predecessor: { project: { id: projectId } }, successor: { id: taskId } } as unknown) as FindOptionsWhere<TaskDependency>,
+          ] as FindOptionsWhere<TaskDependency>[])
+        : baseWhere,
       relations: { predecessor: true, successor: true },
       order: { id: 'ASC' },
     })
@@ -195,9 +189,9 @@ export class ProjectsService {
       this.tasks.findOne({ where: { id: successorId }, relations: { project: true } }),
     ])
     if (!pred || !succ || pred.project.id !== projectId || succ.project.id !== projectId) throw new NotFoundException('Task not found')
-    const exists = await this.deps.findOne({ where: { predecessor: { id: predecessorId } as any, successor: { id: successorId } as any } })
+    const exists = await this.deps.findOne({ where: (({ predecessor: { id: predecessorId }, successor: { id: successorId } } as unknown) as FindOptionsWhere<TaskDependency>) })
     if (exists) return exists
-    const edge = await this.deps.save(this.deps.create({ predecessor: { id: predecessorId } as any, successor: { id: successorId } as any, lagDays }))
+    const edge = await this.deps.save(this.deps.create({ predecessor: ({ id: predecessorId } as unknown as Task), successor: ({ id: successorId } as unknown as Task), lagDays }))
     await this.outbox.append({ name: 'project.dependency.added', aggregateType: 'project', aggregateId: projectId, userId, payload: { projectId, predecessorId, successorId, lagDays } })
     return edge
   }
@@ -205,9 +199,9 @@ export class ProjectsService {
   async removeDependency(userId: string, projectId: string, predecessorId: string, successorId: string) {
     const member = await this.members.findOne({ where: { projectId, userId } })
     if (!member) throw new ForbiddenException()
-    const edge = await this.deps.findOne({ where: { predecessor: { id: predecessorId } as any, successor: { id: successorId } as any }, relations: { predecessor: { project: true }, successor: { project: true } } })
+    const edge = await this.deps.findOne({ where: (({ predecessor: { id: predecessorId }, successor: { id: successorId } } as unknown) as FindOptionsWhere<TaskDependency>), relations: { predecessor: { project: true }, successor: { project: true } } })
     if (!edge) return { success: true }
-    if ((edge.predecessor as any).project.id !== projectId || (edge.successor as any).project.id !== projectId) throw new ForbiddenException()
+    if (edge.predecessor.project.id !== projectId || edge.successor.project.id !== projectId) throw new ForbiddenException()
     await this.deps.delete(edge.id)
     await this.outbox.append({ name: 'project.dependency.removed', aggregateType: 'project', aggregateId: projectId, userId, payload: { projectId, predecessorId, successorId } })
     return { success: true }
@@ -243,7 +237,7 @@ export class ProjectsService {
         if (visited.has(cur.id)) continue
         visited.add(cur.id)
         // Find successors within same project
-        const edges = await this.deps.find({ where: { predecessor: { id: cur.id } as any, successor: { project: { id: projectId } as any } as any }, relations: { successor: true } })
+        const edges = await this.deps.find({ where: (({ predecessor: { id: cur.id }, successor: { project: { id: projectId } } } as unknown) as FindOptionsWhere<TaskDependency>), relations: { successor: true } })
         if (!edges.length) continue
         const succIds = edges.map((e) => String(e.successor.id))
         const successors = await this.tasks.find({ where: { id: In(succIds) } })

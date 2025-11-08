@@ -73,7 +73,7 @@ export function WorkflowNode({ node, onSelect, isSelected }: WorkflowNodeProps) 
           {/* Node content */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-lg">{node.config?.icon || '📦'}</span>
+              <span className="text-lg">{String((node.config as Record<string, unknown>)?.icon ?? '📦')}</span>
               <div className="flex-1 truncate text-sm font-semibold">{node.label}</div>
             </div>
             {node.config && Object.keys(node.config).length > 0 && (

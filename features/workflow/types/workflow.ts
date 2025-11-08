@@ -11,7 +11,7 @@ export interface WorkflowNode {
   nodeType: string // e.g., 'task_created', 'compare', 'send_email'
   label: string
   position: { x: number; y: number }
-  config: Record<string, any>
+  config: Record<string, unknown>
 }
 
 export interface WorkflowEdge {
@@ -37,7 +37,7 @@ export interface NodeDefinition {
   label: string
   description: string
   icon: string
-  config?: Record<string, any>
+  config?: Record<string, unknown>
 }
 
 // Node definitions for palette

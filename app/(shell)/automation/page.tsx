@@ -48,7 +48,7 @@ export default function AutomationPage() {
     setHasChanges(true)
   }
 
-  const handleUpdateNode = (nodeId: string, config: Record<string, any>) => {
+  const handleUpdateNode = (nodeId: string, config: Record<string, unknown>) => {
     setNodes(nodes.map((node) => (node.id === nodeId ? { ...node, config } : node)))
     setHasChanges(true)
   }

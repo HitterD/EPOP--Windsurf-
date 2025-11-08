@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { getSocket } from '../client'
 import { SOCKET_EVENTS } from '@/lib/constants'
-import { ChatMessageEvent, Message, TypingState } from '@/types'
+import { ChatMessageEvent, Message, TypingState, type CursorPaginatedResponse, type Chat } from '@/types'
 import { useDomainEvents } from './use-domain-events'
 
 /**
@@ -22,29 +22,30 @@ export function useChatMessageEvents(chatId: string, enabled = true) {
         const messageEvent = event
         if (messageEvent.chatId === chatId) {
           // Add new message to infinite query cache
-          queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-            if (!oldData) return oldData
-
-            const firstPage = oldData.pages[0]
-            const newMessage = messageEvent.patch as Message
-
-            return {
-              ...oldData,
-              pages: [
-                {
-                  ...firstPage,
-                  items: [newMessage, ...firstPage.items],
-                },
-                ...oldData.pages.slice(1),
-              ],
-            }
-          })
+          queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+            ['chat-messages', chatId],
+            (oldData) => {
+              if (!oldData || !Array.isArray(oldData.pages) || oldData.pages.length === 0) return oldData
+              const firstPage = oldData.pages[0]!
+              const newMessage = messageEvent.patch as Message
+              return {
+                ...oldData,
+                pages: [
+                  {
+                    ...firstPage,
+                    items: [newMessage, ...(firstPage.items || [])],
+                  },
+                  ...oldData.pages.slice(1),
+                ],
+              }
+            },
+          )
 
           // Update chat list with last message
-          queryClient.setQueryData(['chats'], (oldData: any) => {
+          queryClient.setQueryData<Chat[] | undefined>(['chats'], (oldData) => {
             if (!oldData || !Array.isArray(oldData)) return oldData
-            return oldData.map((chat: any) =>
-              chat.id === chatId ? { ...chat, lastMessage: messageEvent.patch } : chat
+            return oldData.map((chat) =>
+              chat.id === chatId ? { ...chat, lastMessage: messageEvent.patch as Message } : chat
             )
           })
         }
@@ -61,19 +62,21 @@ export function useChatMessageEvents(chatId: string, enabled = true) {
       (event: ChatMessageEvent) => {
         const messageEvent = event
         if (messageEvent.chatId === chatId) {
-          queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-            if (!oldData) return oldData
-
-            return {
-              ...oldData,
-              pages: oldData.pages.map((page: any) => ({
-                ...page,
-                items: page.items.map((msg: Message) =>
-                  msg.id === messageEvent.messageId ? { ...msg, ...messageEvent.patch } : msg
-                ),
-              })),
-            }
-          })
+          queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+            ['chat-messages', chatId],
+            (oldData) => {
+              if (!oldData) return oldData
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page): CursorPaginatedResponse<Message> => ({
+                  ...page,
+                  items: (page.items || []).map((msg: Message) =>
+                    msg.id === messageEvent.messageId ? { ...msg, ...(messageEvent.patch as Partial<Message>) } : msg
+                  ),
+                })),
+              }
+            },
+          )
         }
       },
       [chatId, queryClient]
@@ -88,17 +91,19 @@ export function useChatMessageEvents(chatId: string, enabled = true) {
       (event: ChatMessageEvent) => {
         const messageEvent = event
         if (messageEvent.chatId === chatId) {
-          queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-            if (!oldData) return oldData
-
-            return {
-              ...oldData,
-              pages: oldData.pages.map((page: any) => ({
-                ...page,
-                items: page.items.filter((msg: Message) => msg.id !== messageEvent.messageId),
-              })),
-            }
-          })
+          queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+            ['chat-messages', chatId],
+            (oldData) => {
+              if (!oldData) return oldData
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page): CursorPaginatedResponse<Message> => ({
+                  ...page,
+                  items: (page.items || []).filter((msg: Message) => msg.id !== messageEvent.messageId),
+                })),
+              }
+            },
+          )
         }
       },
       [chatId, queryClient]
@@ -113,21 +118,23 @@ export function useChatMessageEvents(chatId: string, enabled = true) {
       (event: ChatMessageEvent) => {
         const messageEvent = event
         if (messageEvent.chatId === chatId) {
-          queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-            if (!oldData) return oldData
-
-            return {
-              ...oldData,
-              pages: oldData.pages.map((page: any) => ({
-                ...page,
-                items: page.items.map((msg: Message) =>
-                  msg.id === messageEvent.messageId
-                    ? { ...msg, reactionsSummary: messageEvent.patch?.reactionsSummary }
-                    : msg
-                ),
-              })),
-            }
-          })
+          queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+            ['chat-messages', chatId],
+            (oldData) => {
+              if (!oldData) return oldData
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page): CursorPaginatedResponse<Message> => ({
+                  ...page,
+                  items: (page.items || []).map((msg: Message) => {
+                    if (msg.id !== messageEvent.messageId) return msg
+                    const rs = messageEvent.patch?.reactionsSummary
+                    return rs !== undefined ? { ...msg, reactionsSummary: rs } : msg
+                  }),
+                })),
+              }
+            },
+          )
         }
       },
       [chatId, queryClient]
@@ -142,6 +149,21 @@ export function useTypingIndicator(chatId: string, userId: string, userName: str
   const socket = getSocket()
   const typingTimeoutRef = useRef<NodeJS.Timeout>()
   const isTypingRef = useRef(false)
+
+  const stopTyping = useCallback(() => {
+    if (isTypingRef.current) {
+      socket.emit(SOCKET_EVENTS.CHAT_TYPING_STOP, {
+        chatId,
+        userId,
+        timestamp: new Date().toISOString(),
+      })
+      isTypingRef.current = false
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+  }, [chatId, userId, socket])
 
   const startTyping = useCallback(() => {
     if (!isTypingRef.current) {
@@ -163,22 +185,7 @@ export function useTypingIndicator(chatId: string, userId: string, userName: str
     typingTimeoutRef.current = setTimeout(() => {
       stopTyping()
     }, 3000)
-  }, [chatId, userId, userName, socket])
-
-  const stopTyping = useCallback(() => {
-    if (isTypingRef.current) {
-      socket.emit(SOCKET_EVENTS.CHAT_TYPING_STOP, {
-        chatId,
-        userId,
-        timestamp: new Date().toISOString(),
-      })
-      isTypingRef.current = false
-    }
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
-  }, [chatId, userId, socket])
+  }, [chatId, userId, userName, socket, stopTyping])
 
   // Cleanup on unmount
   useEffect(() => {

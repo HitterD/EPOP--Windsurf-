@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useDropzone, type FileRejection } from 'react-dropzone'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -25,11 +25,11 @@ export function BulkImportUploadStep({
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     setError(null)
 
     if (rejectedFiles.length > 0) {
-      const rejection = rejectedFiles[0]
+      const rejection = rejectedFiles[0]!
       if (rejection.errors[0]?.code === 'file-too-large') {
         setError('File is too large. Maximum size is 5MB.')
       } else if (rejection.errors[0]?.code === 'file-invalid-type') {

@@ -11,6 +11,8 @@ import { useSendMessage } from '@/lib/api/hooks/use-chats'
 import { useTypingIndicator } from '@/lib/socket/hooks/use-chat-events'
 import { SafeHtml } from '@/components/ui/safe-html'
 import { useFiles } from '@/lib/api/hooks/use-files'
+import type { FileItem, CursorPaginatedResponse, Message as ChatMessage } from '@/types'
+import type { InfiniteData } from '@tanstack/react-query'
 import {
   Send,
   Paperclip,
@@ -55,7 +57,10 @@ export function ChatCompose({ chatId }: ChatComposeProps) {
 
   // Files for quick attachment when sending as mail
   const { data: filesData } = useFiles()
-  const fileItems = useMemo(() => (filesData?.pages || []).flatMap((p: any) => p.items || []), [filesData])
+  const fileItems = useMemo(() => {
+    const pages = (filesData?.pages || []) as Array<CursorPaginatedResponse<FileItem>>
+    return pages.flatMap((p) => p.items || [])
+  }, [filesData])
 
   const handleSend = async () => {
     if (!message.trim() || !currentUser) return
@@ -103,7 +108,7 @@ export function ChatCompose({ chatId }: ChatComposeProps) {
       const saved = await sendMessage({ id: tempId, content: newMessage.content, deliveryPriority: newMessage.deliveryPriority })
       if (saved) {
         removeMessage(tempId)
-        addMessage(saved as any)
+        addMessage(saved as ChatMessage)
       }
     } catch {
       // On failure, remove optimistic message
@@ -260,7 +265,7 @@ export function ChatCompose({ chatId }: ChatComposeProps) {
             )}
           </div>
           <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-            {fileItems.map((f: any) => {
+            {fileItems.map((f: FileItem) => {
               const selected = selectedAttachments.includes(f.url)
               return (
                 <div key={f.id} className="flex items-center justify-between rounded border p-2 text-sm">

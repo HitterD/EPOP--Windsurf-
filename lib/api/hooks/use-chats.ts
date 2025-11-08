@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
 import { apiClient } from '../client'
-import { Chat, Message, CursorPaginatedResponse, Thread } from '@/types'
+import { Chat, Message, CursorPaginatedResponse, Thread, ReactionSummary } from '@/types'
 import { useChatStore } from '@/lib/stores/chat-store'
 import { toast } from 'sonner'
 import { buildCursorQuery, withIdempotencyKey } from '../utils'
@@ -71,39 +71,46 @@ export function useSendMessage(chatId: string) {
     onSuccess: (saved, variables) => {
       // Reconcile optimistic message tempId -> serverId
       if (saved && variables?.id) {
-        queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-          if (!oldData) return oldData
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page: any, idx: number) => {
-              const found = page.items?.some((m: any) => m.id === variables.id)
-              if (!found) return page
-              return {
-                ...page,
-                items: page.items.map((m: any) => (m.id === variables.id ? saved : m)),
-              }
-            }),
-          }
-        })
-      } else if (saved) {
+        queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+          ['chat-messages', chatId],
+          (oldData) => {
+            if (!oldData) return oldData
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page): CursorPaginatedResponse<Message> => {
+                const found = page.items?.some((m) => m.id === variables.id)
+                if (!found) return page
+                return {
+                  ...page,
+                  items: (page.items || []).map((m) => (m.id === variables.id ? saved : m)),
+                }
+              }),
+            }
+          },
+        )
+      }
+      else if (saved) {
         // No optimistic placeholder found; prepend to first page
-        queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-          if (!oldData || !Array.isArray(oldData.pages) || oldData.pages.length === 0) return oldData
-          const first = oldData.pages[0]
-          return {
-            ...oldData,
-            pages: [
-              { ...first, items: [saved, ...(first.items || [])] },
-              ...oldData.pages.slice(1),
-            ],
-          }
-        })
+        queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+          ['chat-messages', chatId],
+          (oldData) => {
+            if (!oldData || !Array.isArray(oldData.pages) || oldData.pages.length === 0) return oldData
+            const first = oldData.pages[0]!
+            return {
+              ...oldData,
+              pages: [
+                { ...first, items: [saved, ...(first.items ?? [])] },
+                ...oldData.pages.slice(1),
+              ],
+            }
+          },
+        )
       }
       // Update chat list last message
       if (saved) {
-        queryClient.setQueryData(['chats'], (old: any) => {
+        queryClient.setQueryData<Chat[] | undefined>(['chats'], (old) => {
           if (!old || !Array.isArray(old)) return old
-          return old.map((c: any) => (c.id === chatId ? { ...c, lastMessage: saved } : c))
+          return old.map((c) => (c.id === chatId ? { ...c, lastMessage: saved } : c))
         })
       }
     },
@@ -158,25 +165,28 @@ export function useAddReaction(chatId: string) {
       return response.data
     },
     onSuccess: (_data, { messageId, emoji }) => {
-      queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-        if (!oldData || !Array.isArray(oldData.pages)) return oldData
-        const pages = oldData.pages.map((page: any) => ({
-          ...page,
-          items: (page.items || []).map((m: any) => {
-            if (m.id !== messageId) return m
-            const summary = Array.isArray(m.reactionsSummary) ? [...m.reactionsSummary] : []
-            const idx = summary.findIndex((r: any) => r.emoji === emoji)
-            if (idx >= 0) {
-              const r = summary[idx]
-              summary[idx] = { ...r, count: (r.count || 0) + 1, hasCurrentUser: true }
-            } else {
-              summary.unshift({ emoji, count: 1, userIds: [], hasCurrentUser: true })
-            }
-            return { ...m, reactionsSummary: summary }
-          }),
-        }))
-        return { ...oldData, pages }
-      })
+      queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+        ['chat-messages', chatId],
+        (oldData) => {
+          if (!oldData || !Array.isArray(oldData.pages)) return oldData
+          const pages = oldData.pages.map((page): CursorPaginatedResponse<Message> => ({
+            ...page,
+            items: (page.items || []).map((m) => {
+              if (m.id !== messageId) return m
+              const summary: ReactionSummary[] = Array.isArray(m.reactionsSummary) ? [...m.reactionsSummary] : []
+              const idx = summary.findIndex((r) => r.emoji === emoji)
+              if (idx >= 0) {
+                const r = summary[idx]!
+                summary[idx] = { ...r, count: r.count + 1, hasCurrentUser: true }
+              } else {
+                summary.unshift({ emoji, count: 1, userIds: [], hasCurrentUser: true })
+              }
+              return { ...m, reactionsSummary: summary }
+            }),
+          }))
+          return { ...oldData, pages }
+        },
+      )
     },
   })
 }
@@ -197,24 +207,27 @@ export function useRemoveReaction(chatId: string) {
       }
     },
     onSuccess: (_data, { messageId, emoji }) => {
-      queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-        if (!oldData || !Array.isArray(oldData.pages)) return oldData
-        const pages = oldData.pages.map((page: any) => ({
-          ...page,
-          items: (page.items || []).map((m: any) => {
-            if (m.id !== messageId) return m
-            const summary = Array.isArray(m.reactionsSummary) ? [...m.reactionsSummary] : []
-            const idx = summary.findIndex((r: any) => r.emoji === emoji)
-            if (idx >= 0) {
-              const r = summary[idx]
-              const newCount = Math.max(0, (r.count || 0) - 1)
-              summary[idx] = { ...r, count: newCount, hasCurrentUser: false }
-            }
-            return { ...m, reactionsSummary: summary.filter((r: any) => (r.count || 0) > 0) }
-          }),
-        }))
-        return { ...oldData, pages }
-      })
+      queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+        ['chat-messages', chatId],
+        (oldData) => {
+          if (!oldData || !Array.isArray(oldData.pages)) return oldData
+          const pages = oldData.pages.map((page): CursorPaginatedResponse<Message> => ({
+            ...page,
+            items: (page.items || []).map((m) => {
+              if (m.id !== messageId) return m
+              const summary: ReactionSummary[] = Array.isArray(m.reactionsSummary) ? [...m.reactionsSummary] : []
+              const idx = summary.findIndex((r) => r.emoji === emoji)
+              if (idx >= 0) {
+                const r = summary[idx]!
+                const newCount = Math.max(0, r.count - 1)
+                summary[idx] = { ...r, count: newCount, hasCurrentUser: false }
+              }
+              return { ...m, reactionsSummary: summary.filter((r) => r.count > 0) }
+            }),
+          }))
+          return { ...oldData, pages }
+        },
+      )
     },
   })
 }
@@ -257,14 +270,17 @@ export function useEditMessage(chatId: string) {
     },
     onSuccess: (saved) => {
       if (!saved) return
-      queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-        if (!oldData || !Array.isArray(oldData.pages)) return oldData
-        const pages = oldData.pages.map((page: any) => ({
-          ...page,
-          items: (page.items || []).map((m: any) => (m.id === saved.id ? { ...m, ...saved } : m)),
-        }))
-        return { ...oldData, pages }
-      })
+      queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+        ['chat-messages', chatId],
+        (oldData) => {
+          if (!oldData || !Array.isArray(oldData.pages)) return oldData
+          const pages = oldData.pages.map((page): CursorPaginatedResponse<Message> => ({
+            ...page,
+            items: (page.items || []).map((m) => (m.id === saved.id ? { ...m, ...saved } : m)),
+          }))
+          return { ...oldData, pages }
+        },
+      )
     },
   })
 }
@@ -283,14 +299,17 @@ export function useDeleteMessage(chatId: string) {
       }
     },
     onSuccess: (_data, messageId) => {
-      queryClient.setQueryData(['chat-messages', chatId], (oldData: any) => {
-        if (!oldData || !Array.isArray(oldData.pages)) return oldData
-        const pages = oldData.pages.map((page: any) => ({
-          ...page,
-          items: (page.items || []).filter((m: any) => m.id !== messageId),
-        }))
-        return { ...oldData, pages }
-      })
+      queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+        ['chat-messages', chatId],
+        (oldData) => {
+          if (!oldData || !Array.isArray(oldData.pages)) return oldData
+          const pages = oldData.pages.map((page): CursorPaginatedResponse<Message> => ({
+            ...page,
+            items: (page.items || []).filter((m) => m.id !== messageId),
+          }))
+          return { ...oldData, pages }
+        },
+      )
     },
   })
 }

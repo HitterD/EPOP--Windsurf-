@@ -35,7 +35,7 @@ export interface OptimisticOptions {
 /**
  * Creates an optimistic item wrapper
  */
-export function createOptimisticItem<T extends Record<string, any>>(
+export function createOptimisticItem<T extends Record<string, unknown>>(
   data: T,
   options?: OptimisticOptions
 ): OptimisticItem<T> {
@@ -51,7 +51,7 @@ export function createOptimisticItem<T extends Record<string, any>>(
  * Reconcile optimistic items with server response
  * Prevents duplicates by matching tempId or actual ID
  */
-export function reconcileOptimisticItems<T extends Record<string, any>>(
+export function reconcileOptimisticItems<T extends Record<string, unknown>>(
   currentItems: OptimisticItem<T>[],
   newItem: T,
   tempId: string,
@@ -70,7 +70,9 @@ export function reconcileOptimisticItems<T extends Record<string, any>>(
     }
 
     // Check for duplicate by actual ID (server returned same item)
-    if (item.data[idField] && item.data[idField] === newItem[idField]) {
+    const oldData = item.data as Record<string, unknown>
+    const newData = newItem as Record<string, unknown>
+    if (oldData[idField] && oldData[idField] === newData[idField]) {
       return {
         ...item,
         data: newItem,
@@ -85,7 +87,7 @@ export function reconcileOptimisticItems<T extends Record<string, any>>(
 /**
  * Remove optimistic item on error
  */
-export function markOptimisticItemFailed<T extends Record<string, any>>(
+export function markOptimisticItemFailed<T extends Record<string, unknown>>(
   currentItems: OptimisticItem<T>[],
   tempId: string,
   error: Error
@@ -100,7 +102,7 @@ export function markOptimisticItemFailed<T extends Record<string, any>>(
 /**
  * Remove failed or timed-out optimistic items
  */
-export function cleanupOptimisticItems<T extends Record<string, any>>(
+export function cleanupOptimisticItems<T extends Record<string, unknown>>(
   currentItems: OptimisticItem<T>[],
   options: OptimisticOptions = {}
 ): OptimisticItem<T>[] {
@@ -122,7 +124,7 @@ export function cleanupOptimisticItems<T extends Record<string, any>>(
  * Merge new items from server with optimistic items
  * Ensures no duplicates and maintains optimistic items until confirmed
  */
-export function mergeWithOptimistic<T extends Record<string, any>>(
+export function mergeWithOptimistic<T extends Record<string, unknown>>(
   optimisticItems: OptimisticItem<T>[],
   serverItems: T[],
   options: OptimisticOptions = {}
@@ -132,8 +134,11 @@ export function mergeWithOptimistic<T extends Record<string, any>>(
   // Create a map of server items by ID
   const serverMap = new Map(
     serverItems
-      .filter((item) => item[idField])
-      .map((item) => [item[idField], item])
+      .filter((item) => (item as Record<string, unknown>)[idField])
+      .map((item) => [
+        (item as Record<string, unknown>)[idField],
+        item,
+      ])
   )
 
   // Start with optimistic items
@@ -141,11 +146,11 @@ export function mergeWithOptimistic<T extends Record<string, any>>(
 
   // Add server items that aren't already in optimistic list
   for (const serverItem of serverItems) {
-    const serverId = serverItem[idField]
+    const serverId = (serverItem as Record<string, unknown>)[idField]
     if (!serverId) continue
 
     const existsInOptimistic = optimisticItems.some(
-      (opt) => opt.data[idField] === serverId
+      (opt) => (opt.data as Record<string, unknown>)[idField] === serverId
     )
 
     if (!existsInOptimistic) {
@@ -187,7 +192,7 @@ export function getPendingCount<T>(items: OptimisticItem<T>[]): number {
 /**
  * Hook-friendly optimistic update manager
  */
-export class OptimisticManager<T extends Record<string, any>> {
+export class OptimisticManager<T extends Record<string, unknown>> {
   private items: OptimisticItem<T>[] = []
   private options: OptimisticOptions
 

@@ -14,7 +14,7 @@ export class VitalsController {
   // Accept vitals anonymously, with light rate-limit
   @Post()
   @HttpCode(200)
-  @Throttle(10, 1)
+  @Throttle({ default: { limit: 10, ttl: 1 } })
   async record(@Req() req: any, @Body() body: VitalsDto) {
     const userId = req?.user?.userId || null
     return this.vitals.record(body, userId)

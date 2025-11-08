@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Message } from '@/types'
+import { Message, type CursorPaginatedResponse } from '@/types'
+import type { InfiniteData } from '@tanstack/react-query'
 import { useThreadMessages } from '@/lib/api/hooks/use-chats'
 import { MessageBubbleEnhanced } from './message-bubble-enhanced'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -18,7 +19,10 @@ interface ThreadPanelProps {
 
 export function ThreadPanel({ chatId, parent, onClose }: ThreadPanelProps) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useThreadMessages(chatId, parent.id)
-  const replies = useMemo(() => (data?.pages || []).flatMap((p: any) => p.items || []), [data])
+  const replies = useMemo(() => {
+    const pages = (data?.pages || []) as Array<CursorPaginatedResponse<Message>>
+    return pages.flatMap((p) => p.items || [])
+  }, [data])
   const listContainerRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState<number>(400)
   const me = useAuthStore((s) => s.session?.user)
@@ -35,7 +39,7 @@ export function ThreadPanel({ chatId, parent, onClose }: ThreadPanelProps) {
   }, [])
 
   const Row = ({ index, style }: ListChildComponentProps) => {
-    const m = replies[index]
+    const m = replies[index]!
     return (
       <div style={style}>
         <MessageBubbleEnhanced message={m} isOwn={m?.senderId === me?.id} showAvatar={true} />

@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { FileIcon, File as FileIconLucide, Image, Video, Music, Archive } from 'lucide-react'
+import { FileIcon, File as FileIconLucide, Image as ImageIcon, Video, Music, Archive } from 'lucide-react'
 import { FileItem } from '@/types'
 import { formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
@@ -160,7 +160,7 @@ function FileGridItem({
 
 function getFileIcon(mimeType: string, size = 24) {
   if (mimeType.startsWith('image/')) {
-    return <Image size={size} className="text-blue-500" />
+    return <ImageIcon size={size} className="text-blue-500" />
   }
   if (mimeType.startsWith('video/')) {
     return <Video size={size} className="text-purple-500" />

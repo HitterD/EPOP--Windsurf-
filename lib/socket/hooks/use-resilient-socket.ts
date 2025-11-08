@@ -58,8 +58,11 @@ export function useResilientSocket(userId?: string, token?: string) {
       scheduleRetry()
     }
 
-    const onConnectError = (err: any) => {
-      set({ status: 'disconnected', lastError: err?.message ?? 'connect_error' })
+    const onConnectError = (err: unknown) => {
+      const msg = (err && typeof (err as { message?: unknown }).message === 'string')
+        ? String((err as { message: string }).message)
+        : 'connect_error'
+      set({ status: 'disconnected', lastError: msg })
       scheduleRetry()
     }
 

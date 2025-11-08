@@ -9,7 +9,7 @@ const TYPEORM_LOGGING = String(process.env.TYPEORM_LOGGING ?? 'false').toLowerCa
 const SLOW_MS = Number(process.env.TYPEORM_SLOW_QUERY_THRESHOLD_MS ?? 200)
 const SLOW_LOG_FILE = process.env.TYPEORM_SLOW_QUERY_LOG_FILE ?? 'logs/slow-queries.log'
 
-export const AppDataSource = new DataSource({
+const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST ?? 'localhost',
   port: isNaN(PORT) ? 5432 : PORT,

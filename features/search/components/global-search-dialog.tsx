@@ -42,6 +42,7 @@ export function GlobalSearchDialog({ isOpen, onClose }: GlobalSearchDialogProps)
     title: string
     content?: string
     snippet?: string
+    chatId?: string
     metadata?: {
       chatName?: string
       sender?: { name: string; avatar?: string }
@@ -93,6 +94,7 @@ export function GlobalSearchDialog({ isOpen, onClose }: GlobalSearchDialogProps)
         title: item.content || 'Message',
         content: item.content,
         ...(item.content ? { snippet: item.content } : {}),
+        ...(item.chatId ? { chatId: item.chatId } : {}),
         metadata: {
           ...(item.sender
             ? {
@@ -154,6 +156,22 @@ export function GlobalSearchDialog({ isOpen, onClose }: GlobalSearchDialogProps)
 
   const searchResultsArray = searchResults
 
+  const handleResultClick = useCallback((result: UISearchResult) => {
+    // Navigate to result
+    const routes = {
+      message: `/chat/${result.chatId ?? ''}?messageId=${result.id}`,
+      project: `/projects/${result.id}`,
+      user: `/directory/users/${result.id}`,
+      file: `/files?fileId=${result.id}`,
+    }
+
+    const route = routes[result.type as keyof typeof routes]
+    if (route) {
+      router.push(route)
+      onClose()
+    }
+  }, [router, onClose])
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -179,13 +197,13 @@ export function GlobalSearchDialog({ isOpen, onClose }: GlobalSearchDialogProps)
       // Enter to select first result
       if (isOpen && e.key === 'Enter' && searchResultsArray?.length > 0) {
         const firstResult = searchResultsArray[0]
-        handleResultClick(firstResult)
+        if (firstResult) handleResultClick(firstResult)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, searchResultsArray, onClose])
+  }, [isOpen, searchResultsArray, onClose, handleResultClick])
 
   // Reset on close
   useEffect(() => {
@@ -196,21 +214,7 @@ export function GlobalSearchDialog({ isOpen, onClose }: GlobalSearchDialogProps)
     }
   }, [isOpen])
 
-  const handleResultClick = (result: any) => {
-    // Navigate to result
-    const routes = {
-      message: `/chat/${result.chatId}?messageId=${result.id}`,
-      project: `/projects/${result.id}`,
-      user: `/directory/users/${result.id}`,
-      file: `/files?fileId=${result.id}`,
-    }
-
-    const route = routes[result.type as keyof typeof routes]
-    if (route) {
-      router.push(route)
-      onClose()
-    }
-  }
+  
 
   // Group results by type
   const groupedResults = searchResultsArray.reduce((acc, result) => {
@@ -218,7 +222,7 @@ export function GlobalSearchDialog({ isOpen, onClose }: GlobalSearchDialogProps)
     if (!acc[type]) acc[type] = []
     acc[type].push(result)
     return acc
-  }, {} as Record<string, any[]>)
+  }, {} as Record<UISearchResult['type'] | string, UISearchResult[]>)
 
   const resultCounts = {
     all: searchResultsArray?.length || 0,
@@ -260,7 +264,7 @@ export function GlobalSearchDialog({ isOpen, onClose }: GlobalSearchDialogProps)
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'messages' | 'projects' | 'users' | 'files')} className="flex-1 flex flex-col">
           <TabsList className="px-4 pt-2 justify-start rounded-none border-b bg-transparent">
             <TabsTrigger value="all" className="relative">
               All

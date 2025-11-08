@@ -55,7 +55,7 @@ export function VirtualizedMessageList({
         behavior: 'smooth',
       })
     }
-  }, [messages.length])
+  }, [messages.length, virtualizer])
 
   // Mark visible messages as read
   useEffect(() => {

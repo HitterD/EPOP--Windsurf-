@@ -12,7 +12,7 @@ import { Trash2 } from 'lucide-react'
 
 interface NodeInspectorProps {
   node: WorkflowNode | null
-  onUpdate: (nodeId: string, config: Record<string, any>) => void
+  onUpdate: (nodeId: string, config: Record<string, unknown>) => void
   onDelete: (nodeId: string) => void
 }
 
@@ -65,7 +65,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                   <Input
                     id="projectId"
                     placeholder="Filter by project ID"
-                    value={node.config?.projectId || ''}
+                    value={String((node.config as Record<string, unknown>)?.projectId ?? '')}
                     onChange={(e) =>
                       onUpdate(node.id, { ...node.config, projectId: e.target.value })
                     }
@@ -76,7 +76,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                   <select
                     id="priority"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={node.config?.priority || ''}
+                    value={String((node.config as Record<string, unknown>)?.priority ?? '')}
                     onChange={(e) =>
                       onUpdate(node.id, { ...node.config, priority: e.target.value })
                     }
@@ -99,7 +99,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                     id="to"
                     type="email"
                     placeholder="recipient@example.com"
-                    value={node.config?.to || ''}
+                    value={String((node.config as Record<string, unknown>)?.to ?? '')}
                     onChange={(e) => onUpdate(node.id, { ...node.config, to: e.target.value })}
                   />
                 </div>
@@ -108,7 +108,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                   <Input
                     id="subject"
                     placeholder="Email subject"
-                    value={node.config?.subject || ''}
+                    value={String((node.config as Record<string, unknown>)?.subject ?? '')}
                     onChange={(e) =>
                       onUpdate(node.id, { ...node.config, subject: e.target.value })
                     }
@@ -120,7 +120,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                     id="body"
                     placeholder="Email content"
                     rows={4}
-                    value={node.config?.body || ''}
+                    value={String((node.config as Record<string, unknown>)?.body ?? '')}
                     onChange={(e) => onUpdate(node.id, { ...node.config, body: e.target.value })}
                   />
                 </div>
@@ -134,7 +134,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                   <Input
                     id="field"
                     placeholder="e.g., task.priority"
-                    value={node.config?.field || ''}
+                    value={String((node.config as Record<string, unknown>)?.field ?? '')}
                     onChange={(e) => onUpdate(node.id, { ...node.config, field: e.target.value })}
                   />
                 </div>
@@ -143,7 +143,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                   <select
                     id="operator"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={node.config?.operator || 'equals'}
+                    value={String((node.config as Record<string, unknown>)?.operator ?? 'equals')}
                     onChange={(e) =>
                       onUpdate(node.id, { ...node.config, operator: e.target.value })
                     }
@@ -160,7 +160,7 @@ export function NodeInspector({ node, onUpdate, onDelete }: NodeInspectorProps) 
                   <Input
                     id="value"
                     placeholder="Comparison value"
-                    value={node.config?.value || ''}
+                    value={String((node.config as Record<string, unknown>)?.value ?? '')}
                     onChange={(e) => onUpdate(node.id, { ...node.config, value: e.target.value })}
                   />
                 </div>

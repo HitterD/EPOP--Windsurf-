@@ -70,7 +70,7 @@ export function VirtualMessageStream({ messages, chatId, onOpenThread }: Virtual
         itemCount={messages.length}
         itemSize={96}
         overscanCount={8}
-        onItemsRendered={onItemsRendered as any}
+        onItemsRendered={onItemsRendered}
       >
         {Row}
       </List>

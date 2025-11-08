@@ -4,9 +4,7 @@
  */
 
 import dynamic from 'next/dynamic'
-import { ComponentType } from 'react'
-
-import { createElement } from 'react'
+import { type ComponentType } from 'react'
 
 /**
  * Loading fallback component
@@ -21,7 +19,7 @@ const LoadingFallback: React.FC = () => (
  * Heavy table components - ~50KB
  */
 export const DynamicTanStackTable = dynamic(
-  () => import('@tanstack/react-table').then(mod => mod as any),
+  () => import('@tanstack/react-table').then((mod) => mod as unknown as ComponentType),
   { loading: () => <LoadingFallback />, ssr: false }
 )
 
@@ -100,7 +98,7 @@ export const DynamicBulkImportWizard = dynamic(
  * Storybook (development only) - ~500KB
  */
 export const DynamicStorybookPreview = dynamic(
-  () => import('@storybook/react').then(mod => mod as any),
+  () => import('@storybook/react').then((mod) => mod as unknown as ComponentType),
   { loading: () => <LoadingFallback />, ssr: false }
 )
 
@@ -110,7 +108,7 @@ export const DynamicStorybookPreview = dynamic(
 export function createDynamicImport<P = {}>(
   importFn: () => Promise<{ default: ComponentType<P> }>,
   options?: {
-    loading?: (loadingProps: any) => JSX.Element | null
+    loading?: (loadingProps: Record<string, unknown>) => JSX.Element | null
     ssr?: boolean
   }
 ) {

@@ -27,7 +27,7 @@ export function useSocket() {
   return { socket, isConnected }
 }
 
-export function useSocketEvent<T = any>(event: string, handler: (data: T) => void) {
+export function useSocketEvent<T = unknown>(event: string, handler: (data: T) => void) {
   const { socket } = useSocket()
 
   useEffect(() => {

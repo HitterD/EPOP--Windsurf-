@@ -10,14 +10,14 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { Toaster, toast } from 'sonner'
 import { useDomainEvents } from '@/lib/socket/hooks/use-domain-events'
 import { SOCKET_EVENTS } from '@/lib/constants'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { ErrorBoundary } from '@/components/system/ErrorBoundary'
 import ConnectionBanner from '@/components/system/ConnectionBanner'
 import { useResilientSocket } from '@/lib/socket/hooks/use-resilient-socket'
 import { Providers } from '@/components/providers/providers'
 import { SkipLinks } from '@/components/accessibility/skip-link'
 import { StatusAnnouncer } from '@/components/accessibility/aria-live'
-import type { ChatMessageEvent, DomainEvent, Notification } from '@/types'
+import type { ChatMessageEvent, DomainEvent, Notification, CursorPaginatedResponse } from '@/types'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 export default function ShellLayout({ children }: { children: ReactNode }) {
@@ -63,18 +63,28 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
             }
           : undefined,
       })
-      qc.setQueryData(['notifications'], (old: any) => {
-        if (!old || !Array.isArray(old.pages) || old.pages.length === 0) return old
-        const firstPage = old.pages[0]
-        const updatedFirst = {
-          ...firstPage,
-          items: [n, ...(firstPage.items || [])],
+      if (!n) return
+      qc.setQueryData<InfiniteData<CursorPaginatedResponse<Notification>> | undefined>(
+        ['notifications'],
+        (old) => {
+          if (!old || old.pages.length === 0) return old
+          const firstPage = old.pages[0]!
+          let updatedFirst: CursorPaginatedResponse<Notification> = {
+            items: [n as Notification, ...(firstPage.items || [])],
+            hasMore: firstPage.hasMore,
+          }
+          if (firstPage.nextCursor !== undefined) {
+            updatedFirst = { ...updatedFirst, nextCursor: firstPage.nextCursor }
+          }
+          if (firstPage.total !== undefined) {
+            updatedFirst = { ...updatedFirst, total: firstPage.total }
+          }
+          return {
+            ...old,
+            pages: [updatedFirst, ...old.pages.slice(1)],
+          }
         }
-        return {
-          ...old,
-          pages: [updatedFirst, ...old.pages.slice(1)],
-        }
-      })
+      )
     },
   })
 

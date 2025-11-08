@@ -8,7 +8,7 @@ export interface PerformanceMetrics {
   startTime: number
   endTime?: number
   duration?: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 class PerformanceMonitor {
@@ -17,7 +17,7 @@ class PerformanceMonitor {
   /**
    * Start tracking a metric
    */
-  start(name: string, metadata?: Record<string, any>): void {
+  start(name: string, metadata?: Record<string, unknown>): void {
     const base: PerformanceMetrics = {
       name,
       startTime: performance.now(),
@@ -55,7 +55,7 @@ class PerformanceMonitor {
   /**
    * Measure a function execution time
    */
-  async measure<T>(name: string, fn: () => T | Promise<T>, metadata?: Record<string, any>): Promise<T> {
+  async measure<T>(name: string, fn: () => T | Promise<T>, metadata?: Record<string, unknown>): Promise<T> {
     this.start(name, metadata)
     try {
       const result = await fn()
@@ -87,16 +87,20 @@ class PerformanceMonitor {
     // Largest Contentful Paint (LCP)
     const lcpObserver = new PerformanceObserver((list) => {
       const entries = list.getEntries()
-      const lastEntry = entries[entries.length - 1] as any
-      console.log('LCP:', lastEntry.renderTime || lastEntry.loadTime)
+      const lastEntry = entries[entries.length - 1]
+      const lcp = lastEntry as unknown as { renderTime?: number; loadTime?: number }
+      console.log('LCP:', lcp.renderTime ?? lcp.loadTime)
     })
     lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] })
 
     // First Input Delay (FID)
     const fidObserver = new PerformanceObserver((list) => {
       const entries = list.getEntries()
-      entries.forEach((entry: any) => {
-        console.log('FID:', entry.processingStart - entry.startTime)
+      entries.forEach((entry) => {
+        const e = entry as unknown as { processingStart?: number; startTime?: number }
+        if (typeof e.processingStart === 'number' && typeof e.startTime === 'number') {
+          console.log('FID:', e.processingStart - e.startTime)
+        }
       })
     })
     fidObserver.observe({ entryTypes: ['first-input'] })
@@ -104,9 +108,10 @@ class PerformanceMonitor {
     // Cumulative Layout Shift (CLS)
     let clsValue = 0
     const clsObserver = new PerformanceObserver((list) => {
-      list.getEntries().forEach((entry: any) => {
-        if (!entry.hadRecentInput) {
-          clsValue += entry.value
+      list.getEntries().forEach((entry) => {
+        const e = entry as unknown as { hadRecentInput?: boolean; value?: number }
+        if (!e.hadRecentInput && typeof e.value === 'number') {
+          clsValue += e.value
           console.log('CLS:', clsValue)
         }
       })

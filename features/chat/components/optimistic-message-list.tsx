@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { useChatMessageEvents } from '@/lib/socket/hooks/use-chat-events'
 import { MessageBubbleEnhanced } from './message-bubble-enhanced'
 import { TypingIndicator } from './typing-indicator'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { LoadMoreButton } from './load-more-button'
-import { Message } from '@/types'
+import { Message, type CursorPaginatedResponse } from '@/types'
 import { nanoid } from 'nanoid'
 import { formatDate } from 'date-fns'
 
@@ -45,15 +45,17 @@ export function OptimisticMessageList({
   const [isUserScrolling, setIsUserScrolling] = useState(false)
 
   // Listen to real-time events and handle them optimistically
-  const handleRealTimeEvent = (event: any) => {
-    switch (event.type) {
+  const handleRealTimeEvent = (event: unknown) => {
+    const et = (event as { type?: string })?.type
+    switch (et) {
       case 'message:new':
         // Server message received - remove any matching optimistic message
         setOptimisticMessages(prev => {
           const updated = new Map(prev)
           // Find and remove optimistic message with same content
           for (const [key, msg] of updated.entries()) {
-            if (msg.content === event.data.content && msg.senderId === event.data.senderId) {
+            const d = (event as { data?: { content?: string; senderId?: string } }).data
+            if (d && msg.content === d.content && msg.senderId === d.senderId) {
               updated.delete(key)
             }
           }
@@ -63,108 +65,128 @@ export function OptimisticMessageList({
       
       case 'message:edit':
         // Update message content optimistically
-        queryClient.setQueryData(['chat-messages', chatId], (old: any) => {
-          if (!old?.pages) return old
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              items: page.items.map((msg: Message) =>
-                msg.id === event.data.messageId
-                  ? { ...msg, content: event.data.content, isEdited: true, editedAt: new Date().toISOString() }
-                  : msg
-              ),
-            })),
-          }
-        })
+        queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+          ['chat-messages', chatId],
+          (old) => {
+            if (!old) return old
+            const d = (event as { data?: { messageId: string; content: string } }).data
+            if (!d) return old
+            return {
+              ...old,
+              pages: old.pages.map((page): CursorPaginatedResponse<Message> => ({
+                ...page,
+                items: (page.items || []).map((msg: Message) =>
+                  msg.id === d.messageId
+                    ? { ...msg, content: d.content, isEdited: true, editedAt: new Date().toISOString() }
+                    : msg
+                ),
+              })),
+            }
+          },
+        )
         break
       
       case 'message:delete':
         // Mark message as deleted optimistically
-        queryClient.setQueryData(['chat-messages', chatId], (old: any) => {
-          if (!old?.pages) return old
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              items: page.items.map((msg: Message) =>
-                msg.id === event.data.messageId
-                  ? { ...msg, isDeleted: true, content: '[Message deleted]' }
-                  : msg
-              ),
-            })),
-          }
-        })
+        queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+          ['chat-messages', chatId],
+          (old) => {
+            if (!old) return old
+            const d = (event as { data?: { messageId: string } }).data
+            if (!d) return old
+            return {
+              ...old,
+              pages: old.pages.map((page): CursorPaginatedResponse<Message> => ({
+                ...page,
+                items: (page.items || []).map((msg: Message) =>
+                  msg.id === d.messageId
+                    ? { ...msg, isDeleted: true, content: '[Message deleted]' }
+                    : msg
+                ),
+              })),
+            }
+          },
+        )
         break
       
       case 'message:reaction':
         // Update reactions optimistically
-        queryClient.setQueryData(['chat-messages', chatId], (old: any) => {
-          if (!old?.pages) return old
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              items: page.items.map((msg: Message) => {
-                if (msg.id === event.data.messageId) {
-                  const reactions = msg.reactions || []
-                  const existingIndex = reactions.findIndex(
-                    r => r.userId === event.data.userId && r.emoji === event.data.emoji
-                  )
-                  
-                  if (existingIndex >= 0) {
-                    // Remove reaction
-                    return {
-                      ...msg,
-                      reactions: reactions.filter((_, i) => i !== existingIndex),
-                    }
-                  } else {
-                    // Add reaction
-                    return {
-                      ...msg,
-                      reactions: [
-                        ...reactions,
-                        {
-                          id: event.data.id || nanoid(),
-                          emoji: event.data.emoji,
-                          userId: event.data.userId,
-                          createdAt: new Date().toISOString(),
-                        },
-                      ],
+        queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+          ['chat-messages', chatId],
+          (old) => {
+            if (!old) return old
+            const d = (event as { data?: { messageId: string; emoji: string; userId: string; id?: string } }).data
+            if (!d) return old
+            return {
+              ...old,
+              pages: old.pages.map((page): CursorPaginatedResponse<Message> => ({
+                ...page,
+                items: (page.items || []).map((msg: Message) => {
+                  if (msg.id === d.messageId) {
+                    const reactions = msg.reactions || []
+                    const existingIndex = reactions.findIndex(
+                      r => r.userId === d.userId && r.emoji === d.emoji
+                    )
+                    
+                    if (existingIndex >= 0) {
+                      // Remove reaction
+                      return {
+                        ...msg,
+                        reactions: reactions.filter((_, i) => i !== existingIndex),
+                      }
+                    } else {
+                      // Add reaction
+                      return {
+                        ...msg,
+                        reactions: [
+                          ...reactions,
+                          {
+                            id: d.id || nanoid(),
+                            emoji: d.emoji,
+                            userId: d.userId,
+                            createdAt: new Date().toISOString(),
+                          },
+                        ],
+                      }
                     }
                   }
-                }
-                return msg
-              }),
-            })),
-          }
-        })
+                  return msg
+                }),
+              })),
+            }
+          },
+        )
         break
       
       case 'message:read':
         // Update read receipts optimistically
-        queryClient.setQueryData(['chat-messages', chatId], (old: any) => {
-          if (!old?.pages) return old
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              items: page.items.map((msg: Message) => {
-                if (event.data.messageIds?.includes(msg.id)) {
-                  const readBy = msg.readBy || []
-                  if (!readBy.includes(event.data.userId)) {
-                    return {
-                      ...msg,
-                      readBy: [...readBy, event.data.userId],
-                      readCount: (msg.readCount || 0) + 1,
+        queryClient.setQueryData<InfiniteData<CursorPaginatedResponse<Message>> | undefined>(
+          ['chat-messages', chatId],
+          (old) => {
+            if (!old) return old
+            const d = (event as { data?: { messageIds?: string[]; userId: string } }).data
+            if (!d) return old
+            return {
+              ...old,
+              pages: old.pages.map((page): CursorPaginatedResponse<Message> => ({
+                ...page,
+                items: (page.items || []).map((msg: Message) => {
+                  if (d.messageIds?.includes(msg.id)) {
+                    const readBy = msg.readBy || []
+                    if (!readBy.includes(d.userId)) {
+                      return {
+                        ...msg,
+                        readBy: [...readBy, d.userId],
+                        readCount: (msg.readCount || 0) + 1,
+                      }
                     }
                   }
-                }
-                return msg
-              }),
-            })),
-          }
-        })
+                  return msg
+                }),
+              })),
+            }
+          },
+        )
         break
     }
   }
@@ -436,7 +458,7 @@ export function OptimisticMessageList({
         type="hidden"
         ref={(el) => {
           if (el) {
-            (el as any)._addOptimisticMessage = addOptimisticMessage
+            (el as unknown as { _addOptimisticMessage: (content: string) => Promise<void> })._addOptimisticMessage = addOptimisticMessage
           }
         }}
       />

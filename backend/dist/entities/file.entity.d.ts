@@ -5,5 +5,11 @@ export declare class FileEntity {
     mime: string | null;
     size: string | null;
     s3Key: string;
+    s3VersionId: string | null;
+    status: 'pending' | 'scanning' | 'ready' | 'infected' | 'failed';
+    scanResult: string | null;
+    scannedAt: Date | null;
+    retentionPolicy: string | null;
+    retentionExpiresAt: Date | null;
     createdAt: Date;
 }

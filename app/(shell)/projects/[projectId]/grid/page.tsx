@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api/client'
-import { Project } from '@/types'
+import { Project, type Task } from '@/types'
 
 const ProjectGridView = dynamic(
   () => import('@/features/projects/components/project-grid-view').then(m => m.ProjectGridView),
@@ -25,7 +25,7 @@ export default function ProjectGridPage({ params }: ProjectGridPageProps) {
     },
   })
 
-  const handleTaskUpdate = async (taskId: string, updates: any) => {
+  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
     await apiClient.patch(`/projects/${params.projectId}/tasks/${taskId}`, updates)
   }
 

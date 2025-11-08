@@ -63,18 +63,24 @@ const user_entity_1 = require("../entities/user.entity");
 const typeorm_2 = require("typeorm");
 const mailer_service_1 = require("../mailer/mailer.service");
 const swagger_1 = require("@nestjs/swagger");
+const error_dto_1 = require("../common/dto/error.dto");
+const success_dto_1 = require("../common/dto/success.dto");
+const node_crypto_1 = require("node:crypto");
+const outbox_service_1 = require("../events/outbox.service");
 let AuthController = class AuthController {
     auth;
     config;
     redis;
     users;
     mailer;
-    constructor(auth, config, redis, users, mailer) {
+    outbox;
+    constructor(auth, config, redis, users, mailer, outbox) {
         this.auth = auth;
         this.config = config;
         this.redis = redis;
         this.users = users;
         this.mailer = mailer;
+        this.outbox = outbox;
     }
     cookieOpts(maxAgeSeconds) {
         const domain = this.config.get('COOKIE_DOMAIN') || 'localhost';
@@ -88,14 +94,21 @@ let AuthController = class AuthController {
             maxAge: maxAgeSeconds * 1000,
         };
     }
-    async login(dto, res) {
+    async login(dto, req, res) {
         const user = await this.auth.validateUser(dto.email, dto.password);
-        const accessToken = await this.auth.signAccessToken(user);
-        const refreshToken = await this.auth.signRefreshToken(user);
+        const sessionId = (0, node_crypto_1.randomUUID)();
+        const accessToken = await this.auth.signAccessToken(user, sessionId);
+        const { token: refreshToken, jti } = await this.auth.signRefreshToken(user, sessionId);
         const accessTtl = this.config.get('JWT_ACCESS_TTL') ?? 900;
         const refreshTtl = this.config.get('JWT_REFRESH_TTL') ?? 1209600;
         res.cookie('accessToken', accessToken, this.cookieOpts(accessTtl));
         res.cookie('refreshToken', refreshToken, this.cookieOpts(refreshTtl));
+        const now = new Date().toISOString();
+        const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+        const ua = req.headers['user-agent'] || '';
+        await this.redis.sadd(`sess:user:${user.id}`, sessionId);
+        await this.redis.set(`sess:data:${sessionId}`, JSON.stringify({ id: sessionId, userId: String(user.id), ipAddress: ip, userAgent: ua, deviceName: '', deviceType: 'desktop', lastActiveAt: now, createdAt: now }), 'EX', Math.max(3600, refreshTtl));
+        await this.redis.set(`sess:jti:${sessionId}`, jti, 'EX', Math.max(3600, refreshTtl));
         return { success: true };
     }
     async refresh(req, res) {
@@ -105,15 +118,33 @@ let AuthController = class AuthController {
         const payload = await this.auth.verifyRefreshToken(token);
         if (payload.typ !== 'refresh')
             throw new common_1.UnauthorizedException('Invalid token');
+        const sessionId = String(payload.sid || '');
+        const jti = String(payload.jti || '');
+        if (!sessionId || !jti)
+            throw new common_1.UnauthorizedException('Invalid token');
+        const saved = await this.redis.get(`sess:jti:${sessionId}`);
+        if (!saved || saved !== jti)
+            throw new common_1.UnauthorizedException('Token revoked');
         const accessTtl = this.config.get('JWT_ACCESS_TTL') ?? 900;
         const refreshTtl = this.config.get('JWT_REFRESH_TTL') ?? 1209600;
         const user = await this.users.findOne({ where: { id: payload.sub } });
         if (!user)
             throw new common_1.UnauthorizedException('User not found');
-        const accessToken = await this.auth.signAccessToken(user);
-        const refreshToken = await this.auth.signRefreshToken(user);
+        const accessToken = await this.auth.signAccessToken(user, sessionId);
+        const { token: refreshToken, jti: newJti } = await this.auth.signRefreshToken(user, sessionId);
         res.cookie('accessToken', accessToken, this.cookieOpts(accessTtl));
         res.cookie('refreshToken', refreshToken, this.cookieOpts(refreshTtl));
+        await this.redis.set(`sess:jti:${sessionId}`, newJti, 'EX', Math.max(3600, refreshTtl));
+        await this.redis.get(`sess:data:${sessionId}`).then((json) => {
+            if (json) {
+                try {
+                    const data = JSON.parse(json);
+                    data.lastActiveAt = new Date().toISOString();
+                    this.redis.set(`sess:data:${sessionId}`, JSON.stringify(data), 'EX', Math.max(3600, refreshTtl));
+                }
+                catch { }
+            }
+        });
         return { success: true };
     }
     async logout(res) {
@@ -121,14 +152,34 @@ let AuthController = class AuthController {
         res.clearCookie('refreshToken');
         return { success: true };
     }
-    async forgot(email) {
+    async forgot(req, email) {
         const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-        await this.redis.set(`pwdreset:${email}`, token, 'EX', 1800);
+        const ttl = this.config.get('PWD_RESET_TTL') ?? 1800;
+        await this.redis.set(`pwdreset:${email}`, token, 'EX', Math.max(300, ttl));
+        const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+        const ua = req.headers['user-agent'] || '';
+        await this.outbox.append({
+            name: 'user.password.reset.requested',
+            aggregateType: 'user',
+            aggregateId: '0',
+            userId: undefined,
+            payload: { email, ip, ua },
+        });
         await this.mailer.sendPasswordReset(email, token);
         return { success: true };
     }
-    async reset(body) {
-        const saved = await this.redis.get(`pwdreset:${body.email}`);
+    async reset(req, body) {
+        let saved = null;
+        const key = `pwdreset:${body.email}`;
+        const client = this.redis;
+        if (typeof client.getdel === 'function') {
+            saved = await client.getdel(key);
+        }
+        else {
+            saved = await this.redis.get(key);
+            if (saved)
+                await this.redis.del(key);
+        }
         if (!saved || saved !== body.token)
             throw new common_1.UnauthorizedException('Invalid reset token');
         const user = await this.users.findOne({ where: { email: body.email } });
@@ -136,7 +187,15 @@ let AuthController = class AuthController {
             throw new common_1.UnauthorizedException('User not found');
         user.passwordHash = await argon2.hash(body.password);
         await this.users.save(user);
-        await this.redis.del(`pwdreset:${body.email}`);
+        const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+        const ua = req.headers['user-agent'] || '';
+        await this.outbox.append({
+            name: 'user.password.reset.completed',
+            aggregateType: 'user',
+            aggregateId: user.id,
+            userId: user.id,
+            payload: { email: body.email, ip, ua },
+        });
         return { success: true };
     }
     async subscribePush(req, body) {
@@ -144,18 +203,73 @@ let AuthController = class AuthController {
         await this.redis.set(`push:user:${userId}`, JSON.stringify(body));
         return { success: true };
     }
+    async listSessions(req) {
+        const userId = String(req.user.userId);
+        const currentSid = String(req.user.sid || '');
+        const sids = await this.redis.smembers(`sess:user:${userId}`);
+        const items = [];
+        for (const sid of sids) {
+            const json = await this.redis.get(`sess:data:${sid}`);
+            if (json) {
+                try {
+                    const d = JSON.parse(json);
+                    items.push({
+                        id: sid,
+                        userId,
+                        deviceName: d.deviceName || 'Device',
+                        deviceType: d.deviceType || 'desktop',
+                        ipAddress: d.ipAddress || '',
+                        userAgent: d.userAgent || '',
+                        lastActiveAt: d.lastActiveAt || d.createdAt,
+                        createdAt: d.createdAt,
+                        isCurrent: sid === currentSid,
+                    });
+                }
+                catch { }
+            }
+        }
+        items.sort((a, b) => String(b.lastActiveAt).localeCompare(String(a.lastActiveAt)));
+        return items;
+    }
+    async revokeSession(req, sid) {
+        const userId = String(req.user.userId);
+        const belongs = await this.redis.sismember(`sess:user:${userId}`, sid);
+        if (!belongs)
+            throw new common_1.UnauthorizedException('Session not found');
+        await this.redis.srem(`sess:user:${userId}`, sid);
+        await this.redis.del(`sess:data:${sid}`);
+        await this.redis.del(`sess:jti:${sid}`);
+        return { success: true };
+    }
+    async revokeAllSessions(req) {
+        const userId = String(req.user.userId);
+        const currentSid = String(req.user.sid || '');
+        const sids = await this.redis.smembers(`sess:user:${userId}`);
+        const toRemove = sids.filter((s) => s !== currentSid);
+        if (toRemove.length) {
+            await this.redis.srem(`sess:user:${userId}`, ...toRemove);
+            for (const sid of toRemove) {
+                await this.redis.del(`sess:data:${sid}`);
+                await this.redis.del(`sess:jti:${sid}`);
+            }
+        }
+        return { success: true };
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('login'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
     __param(0, (0, common_1.Body)()),
-    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [login_dto_1.LoginDto, Object]),
+    __metadata("design:paramtypes", [login_dto_1.LoginDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
     (0, common_1.Post)('refresh'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
@@ -164,6 +278,7 @@ __decorate([
 ], AuthController.prototype, "refresh", null);
 __decorate([
     (0, common_1.Post)('logout'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
     __param(0, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -171,29 +286,62 @@ __decorate([
 ], AuthController.prototype, "logout", null);
 __decorate([
     (0, common_1.Post)('password/forgot'),
-    __param(0, (0, common_1.Body)('email')),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)('email')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "forgot", null);
 __decorate([
     (0, common_1.Post)('password/reset'),
-    __param(0, (0, common_1.Body)()),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "reset", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Post)('push/subscribe'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "subscribePush", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('sessions'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "listSessions", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Delete)('sessions/:id'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "revokeSession", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Post)('sessions/revoke-all'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "revokeAllSessions", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('auth'),
+    (0, swagger_1.ApiDefaultResponse)({ type: error_dto_1.ErrorResponse }),
     (0, common_1.Controller)('auth'),
     __param(2, (0, common_2.Inject)(redis_module_1.REDIS_PUB)),
     __param(3, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
@@ -201,6 +349,7 @@ exports.AuthController = AuthController = __decorate([
         config_1.ConfigService,
         ioredis_1.default,
         typeorm_2.Repository,
-        mailer_service_1.MailerService])
+        mailer_service_1.MailerService,
+        outbox_service_1.OutboxService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

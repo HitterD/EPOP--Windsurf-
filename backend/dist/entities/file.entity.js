@@ -18,6 +18,12 @@ let FileEntity = class FileEntity {
     mime;
     size;
     s3Key;
+    s3VersionId;
+    status;
+    scanResult;
+    scannedAt;
+    retentionPolicy;
+    retentionExpiresAt;
     createdAt;
 };
 exports.FileEntity = FileEntity;
@@ -45,6 +51,30 @@ __decorate([
     (0, typeorm_1.Column)({ name: 's3_key', type: 'text' }),
     __metadata("design:type", String)
 ], FileEntity.prototype, "s3Key", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 's3_version_id', type: 'text', nullable: true }),
+    __metadata("design:type", Object)
+], FileEntity.prototype, "s3VersionId", void 0);
+__decorate([
+    (0, typeorm_1.Column)('text', { default: 'pending' }),
+    __metadata("design:type", String)
+], FileEntity.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'scan_result', type: 'text', nullable: true }),
+    __metadata("design:type", Object)
+], FileEntity.prototype, "scanResult", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'scanned_at', type: 'timestamptz', nullable: true }),
+    __metadata("design:type", Object)
+], FileEntity.prototype, "scannedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'retention_policy', type: 'text', nullable: true }),
+    __metadata("design:type", Object)
+], FileEntity.prototype, "retentionPolicy", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'retention_expires_at', type: 'timestamptz', nullable: true }),
+    __metadata("design:type", Object)
+], FileEntity.prototype, "retentionExpiresAt", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ name: 'created_at', type: 'timestamptz', default: () => 'now()' }),
     __metadata("design:type", Date)

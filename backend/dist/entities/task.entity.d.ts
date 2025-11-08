@@ -11,8 +11,8 @@ export declare class Task {
     description: string | null;
     priority: 'low' | 'medium' | 'high' | string;
     progress: 'not_started' | 'in_progress' | 'completed' | 'late' | string;
-    startAt: string | null;
-    dueAt: string | null;
+    startAt: Date | null;
+    dueAt: Date | null;
     position: number;
     createdBy: User | null;
     createdAt: Date;

@@ -37,9 +37,9 @@ export function BulkImportPreviewStep({
   const actualImport = useBulkImport()
 
   useEffect(() => {
-    // Run dry-run on mount
+    // Run dry-run when file or mapping changes
     dryRun.mutate({ file, mapping })
-  }, [])
+  }, [dryRun, file, mapping])
 
   const handleImport = () => {
     if (dryRun.data) {
@@ -198,7 +198,7 @@ export function BulkImportPreviewStep({
                     </TableCell>
                     {preview.columns.map((col) => (
                       <TableCell key={col} className="max-w-[200px] truncate">
-                        {row.data[col] || '-'}
+                        {String(row.data[col] ?? '-')}
                       </TableCell>
                     ))}
                   </TableRow>

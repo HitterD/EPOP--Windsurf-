@@ -57,7 +57,7 @@ export class ChatService {
     const keys = ids.map((id) => `msgagg:${id}`)
     let cached: Array<string | null> = []
     try {
-      cached = await (this.redis as any).mget(...keys)
+      cached = await this.redis.mget(...keys)
     } catch {
       cached = []
     }
@@ -86,7 +86,7 @@ export class ChatService {
           [missing],
         ),
       ])
-      const byMsgReac = new Map<string, any[]>()
+      const byMsgReac = new Map<string, Array<{ emoji: string; count: number; userIds: string[] }>>()
       for (const r of reacRows) {
         const arr = byMsgReac.get(String(r.message_id)) || []
         arr.push({ emoji: r.emoji, count: Number(r.cnt), userIds: (r.user_ids || []).map(String) })
@@ -94,11 +94,11 @@ export class ChatService {
       }
       const byMsgRead = new Map<string, number>()
       for (const rd of readRows) byMsgRead.set(String(rd.message_id), Number(rd.cnt))
-      const pipe = (this.redis as any).pipeline()
+      const pipe = this.redis.pipeline()
       for (const id of missing) {
         const val = { reac: byMsgReac.get(String(id)) || [], readCount: byMsgRead.get(String(id)) || 0 }
         result.set(String(id), val)
-        try { pipe.set(`msgagg:${id}`, JSON.stringify(val), { EX: 60 }) } catch {}
+        try { pipe.set(`msgagg:${id}`, JSON.stringify(val), 'EX', 60) } catch {}
       }
       try { await pipe.exec() } catch {}
     }
@@ -106,14 +106,28 @@ export class ChatService {
   }
 
   async createChat(createdBy: string, dto: { isGroup: boolean; title?: string | null; participantIds: string[] }) {
-    const chat = await this.chats.save(this.chats.create({ isGroup: dto.isGroup, title: dto.title ?? null, createdBy: { id: createdBy } as any }))
+    const chat = await this.chats.save(
+      this.chats.create({ isGroup: dto.isGroup, title: dto.title ?? null, createdBy: ({ id: createdBy } as unknown as import('../entities/user.entity').User) })
+    )
     const parts = Array.from(new Set([createdBy, ...dto.participantIds]))
     await this.participants.save(parts.map((uid) => this.participants.create({ chatId: chat.id, userId: uid })))
     await this.outbox.append({ name: 'chat.participant.joined', aggregateType: 'chat', aggregateId: chat.id, userId: createdBy, payload: { chatId: chat.id, userId: createdBy } })
     return chat
   }
 
-  async listMessages(userId: string, chatId: string, limit = 20, beforeId?: string) {
+  async listMessages(
+    userId: string,
+    chatId: string,
+    limit = 20,
+    beforeId?: string,
+  ): Promise<
+    Array<
+      Message & {
+        reactionsSummary: Array<{ emoji: string; count: number; userIds: string[]; hasCurrentUser: boolean }>
+        readCount: number
+      }
+    >
+  > {
     const isMember = await this.participants.findOne({ where: { chatId, userId } })
     if (!isMember) throw new ForbiddenException()
     const qb = this.messages
@@ -135,7 +149,12 @@ export class ChatService {
     if (beforeId) qb.andWhere('m.id < :beforeId', { beforeId })
     const rows = await qb.getMany()
     const items = rows.reverse()
-    if (!items.length) return items
+    if (!items.length) return [] as Array<
+      Message & {
+        reactionsSummary: Array<{ emoji: string; count: number; userIds: string[]; hasCurrentUser: boolean }>
+        readCount: number
+      }
+    >
     const ids = items.map((m) => m.id)
     const agg = await this.loadAggregates(ids)
     return items.map((m) => {
@@ -147,7 +166,7 @@ export class ChatService {
         hasCurrentUser: (r.userIds || []).map(String).includes(String(userId)),
       }))
       return { ...m, reactionsSummary, readCount: a.readCount }
-    }) as any
+    })
   }
 
   async listMessagesCursor(userId: string, chatId: string, limit = 20, cursor: string | null = null) {
@@ -174,7 +193,7 @@ export class ChatService {
     if (decoded?.id) qb.andWhere('m.id < :beforeId', { beforeId: decoded.id })
     const rows = await qb.getMany()
     const base = rows.slice(0, take - 1).reverse()
-    let items: any = base
+    let items = base
     if (base.length) {
       const ids = base.map((m) => m.id)
       const agg = await this.loadAggregates(ids)
@@ -190,28 +209,36 @@ export class ChatService {
       })
     }
     const hasMore = rows.length === take
-    const nextCursor = hasMore && items.length ? encodeCursor({ id: String(items[0].id) }) : undefined
+    const nextCursor = hasMore && items.length ? encodeCursor({ id: String(items[0]!.id) }) : undefined
     return { items, nextCursor, hasMore }
   }
 
-  async sendMessage(userId: string, dto: { chatId: string; content: any; delivery?: 'normal' | 'important' | 'urgent'; rootMessageId?: string | null }) {
+  async sendMessage(userId: string, dto: { chatId: string; content: unknown; delivery?: 'normal' | 'important' | 'urgent'; rootMessageId?: string | null }) {
     const isMember = await this.participants.findOne({ where: { chatId: dto.chatId, userId } })
     if (!isMember) throw new ForbiddenException()
     // Server-side sanitize if rich HTML present
     let contentSan = dto.content
     try {
-      if (contentSan && typeof contentSan === 'object' && typeof contentSan.html === 'string') {
-        contentSan = { ...contentSan, html: sanitizeHtml(contentSan.html) }
+      if (contentSan && typeof contentSan === 'object' && typeof (contentSan as { html?: unknown }).html === 'string') {
+        contentSan = { ...(contentSan as object), html: sanitizeHtml(String((contentSan as { html: string }).html)) }
       } else if (typeof contentSan === 'string') {
         contentSan = sanitizeHtml(contentSan)
       }
     } catch {}
-    const msg = await this.messages.save(this.messages.create({ chat: { id: dto.chatId } as any, sender: { id: userId } as any, contentJson: contentSan, delivery: dto.delivery ?? 'normal', rootMessage: dto.rootMessageId ? ({ id: dto.rootMessageId } as any) : null }))
+    const msg = await this.messages.save(
+      this.messages.create({
+        chat: ({ id: dto.chatId } as unknown as Chat),
+        sender: ({ id: userId } as unknown as import('../entities/user.entity').User),
+        contentJson: contentSan,
+        delivery: dto.delivery ?? 'normal',
+        rootMessage: dto.rootMessageId ? (({ id: dto.rootMessageId } as unknown) as Message) : null,
+      })
+    )
     await this.outbox.append({ name: 'chat.message.created', aggregateType: 'message', aggregateId: msg.id, userId, payload: { chatId: dto.chatId, messageId: msg.id, delivery: msg.delivery } })
     if (msg.delivery === 'urgent') {
       await this.outbox.append({ name: 'user.presence.updated', aggregateType: 'user', aggregateId: userId, userId, payload: { notify: 'urgent', chatId: dto.chatId, messageId: msg.id } })
     }
-    try { await (this.redis as any).del(`msgagg:${msg.id}`) } catch {}
+    try { await this.redis.del(`msgagg:${msg.id}`) } catch {}
     return msg
   }
 
@@ -222,28 +249,28 @@ export class ChatService {
     if (!isMember) throw new ForbiddenException()
     await this.reactions.save(this.reactions.create({ messageId: dto.messageId, userId, emoji: dto.emoji }))
     await this.outbox.append({ name: 'chat.message.reaction.added', aggregateType: 'message', aggregateId: dto.messageId, userId, payload: { chatId: message.chat.id, emoji: dto.emoji } })
-    try { await (this.redis as any).del(`msgagg:${dto.messageId}`) } catch {}
+    try { await this.redis.del(`msgagg:${dto.messageId}`) } catch {}
     return { success: true }
   }
 
-  async editMessage(userId: string, messageId: string, patch: { content: any }) {
+  async editMessage(userId: string, messageId: string, patch: { content: unknown }) {
     const message = await this.messages.findOne({ where: { id: messageId }, relations: { chat: true, sender: true } })
     if (!message) throw new NotFoundException('Message not found')
     const isMember = await this.participants.findOne({ where: { chatId: message.chat.id, userId } })
     if (!isMember) throw new ForbiddenException()
     if (!message.sender || String(message.sender.id) !== String(userId)) throw new ForbiddenException('Only sender can edit')
     // Save history before change
-    await this.history.save(this.history.create({ message: { id: messageId } as any, actor: { id: userId } as any, action: 'edited', prevContentJson: message.contentJson }))
+    await this.history.save(this.history.create({ message: ({ id: messageId } as unknown as Message), actor: ({ id: userId } as unknown as import('../entities/user.entity').User), action: 'edited', prevContentJson: message.contentJson }))
     let contentSan = patch.content
     try {
-      if (contentSan && typeof contentSan === 'object' && typeof contentSan.html === 'string') {
-        contentSan = { ...contentSan, html: sanitizeHtml(contentSan.html) }
+      if (contentSan && typeof contentSan === 'object' && typeof (contentSan as { html?: unknown }).html === 'string') {
+        contentSan = { ...(contentSan as object), html: sanitizeHtml(String((contentSan as { html: string }).html)) }
       } else if (typeof contentSan === 'string') {
         contentSan = sanitizeHtml(contentSan)
       }
     } catch {}
     message.contentJson = contentSan
-    message.editedAt = new Date() as any
+    message.editedAt = new Date()
     await this.messages.save(message)
     await this.outbox.append({ name: 'chat.message.updated', aggregateType: 'message', aggregateId: messageId, userId, payload: { chatId: message.chat.id, messageId, patch: { contentJson: patch.content, editedAt: message.editedAt } } })
     return { success: true }
@@ -255,10 +282,10 @@ export class ChatService {
     const isMember = await this.participants.findOne({ where: { chatId: message.chat.id, userId } })
     if (!isMember) throw new ForbiddenException()
     if (!message.sender || String(message.sender.id) !== String(userId)) throw new ForbiddenException('Only sender can delete')
-    await this.history.save(this.history.create({ message: { id: messageId } as any, actor: { id: userId } as any, action: 'deleted', prevContentJson: message.contentJson }))
+    await this.history.save(this.history.create({ message: ({ id: messageId } as unknown as Message), actor: ({ id: userId } as unknown as import('../entities/user.entity').User), action: 'deleted', prevContentJson: message.contentJson }))
     await this.messages.softDelete({ id: messageId })
     await this.outbox.append({ name: 'chat.message.deleted', aggregateType: 'message', aggregateId: messageId, userId, payload: { chatId: message.chat.id, messageId } })
-    try { await (this.redis as any).del(`msgagg:${messageId}`) } catch {}
+    try { await this.redis.del(`msgagg:${messageId}`) } catch {}
     return { success: true }
   }
 
@@ -269,7 +296,7 @@ export class ChatService {
     if (!isMember) throw new ForbiddenException()
     await this.reactions.delete({ messageId: dto.messageId, userId, emoji: dto.emoji })
     await this.outbox.append({ name: 'chat.message.reaction.removed', aggregateType: 'message', aggregateId: dto.messageId, userId, payload: { chatId: message.chat.id, emoji: dto.emoji } })
-    try { await (this.redis as any).del(`msgagg:${dto.messageId}`) } catch {}
+    try { await this.redis.del(`msgagg:${dto.messageId}`) } catch {}
     return { success: true }
   }
 
@@ -280,7 +307,7 @@ export class ChatService {
     if (!isMember) throw new ForbiddenException()
     await this.reads.save(this.reads.create({ messageId, userId, readAt: new Date() }))
     await this.outbox.append({ name: 'chat.message.read', aggregateType: 'message', aggregateId: messageId, userId, payload: { chatId: message.chat.id } })
-    try { await (this.redis as any).del(`msgagg:${messageId}`) } catch {}
+    try { await this.redis.del(`msgagg:${messageId}`) } catch {}
     return { success: true }
   }
 

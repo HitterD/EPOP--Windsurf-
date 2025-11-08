@@ -1,4 +1,5 @@
 import * as React from 'react'
+import Image from 'next/image'
 import { cn, getPresenceColor } from '@/lib/utils'
 import { PresenceStatus } from '@/types'
 import { Badge } from './badge'
@@ -71,6 +72,7 @@ export function AvatarWithPresence({
   size = 'md',
   className,
 }: AvatarWithPresenceProps) {
+  const sizePx = size === 'sm' ? 32 : size === 'md' ? 40 : 48
   return (
     <div className={cn('relative inline-flex items-center gap-2', className)}>
       <div className="relative">
@@ -81,7 +83,14 @@ export function AvatarWithPresence({
           )}
         >
           {src ? (
-            <img src={src} alt={alt} className="h-full w-full rounded-full object-cover" />
+            <Image
+              src={src}
+              alt={alt}
+              width={sizePx}
+              height={sizePx}
+              unoptimized
+              className="h-full w-full rounded-full object-cover"
+            />
           ) : (
             <span>{fallback}</span>
           )}

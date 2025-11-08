@@ -17,6 +17,7 @@ import {
   useSearchFiles,
 } from '@/lib/api/hooks/use-search'
 import { SearchPreviewPane } from '@/features/search/components/search-preview-pane'
+import type { SearchResultItem, SearchHighlight, Message, Project, User, FileItem } from '@/types'
 
 // Highlight matches in text
 function highlightText(text: string, query: string) {
@@ -51,7 +52,13 @@ export default function SearchPage() {
   const [sender, setSender] = useState('')
   // cursor-based pagination not supported by current SearchResult type
   const [showPreview, setShowPreview] = useState(true)
-  const [selectedResult, setSelectedResult] = useState<any>(null)
+  type UIPreviewResult = {
+    id: string
+    type: 'message' | 'project' | 'user' | 'file'
+    item: Record<string, unknown>
+    highlights?: SearchHighlight[]
+  } | null
+  const [selectedResult, setSelectedResult] = useState<UIPreviewResult>(null)
 
   // Debounce search query
   useEffect(() => {
@@ -84,8 +91,13 @@ export default function SearchPage() {
 
   const isSearching = all.isLoading || messages.isLoading || projects.isLoading || users.isLoading || files.isLoading
 
-  const handleResultClick = (result: any, type: string) => {
-    setSelectedResult({ ...result, type })
+  const handleResultClick = <T,>(result: SearchResultItem<T>, type: 'message' | 'project' | 'user' | 'file') => {
+    setSelectedResult({
+      id: (result.item as unknown as { id: string }).id,
+      type,
+      item: result.item as unknown as Record<string, unknown>,
+      ...(result.highlights ? { highlights: result.highlights as SearchHighlight[] } : {}),
+    })
     if (!showPreview) setShowPreview(true)
   }
 
@@ -144,7 +156,7 @@ export default function SearchPage() {
 
       {/* Split Layout: Results | Preview */}
       <div className="grid flex-1 gap-4" style={{ gridTemplateColumns: showPreview ? '1fr 400px' : '1fr' }}>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'messages' | 'projects' | 'users' | 'files')} className="flex-1">
         <TabsList>
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="messages">
@@ -203,7 +215,7 @@ export default function SearchPage() {
                       <p className="text-sm">{highlightText(r.item.content, debouncedQuery)}</p>
                       {Array.isArray(r.highlights) && r.highlights.length > 0 && (
                         <div className="mt-2 space-y-1 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
-                          {r.highlights.map((h: any, idx: number) => (
+                          {r.highlights.map((h: SearchHighlight, idx: number) => (
                             <div key={idx}>…{h.matches.join(' … ')}…</div>
                           ))}
                         </div>

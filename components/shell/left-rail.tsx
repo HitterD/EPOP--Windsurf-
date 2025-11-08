@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { IfCan } from '@/components/auth/if-can'
@@ -22,7 +23,7 @@ import { IfCan } from '@/components/auth/if-can'
 interface NavItem {
   name: string
   href: string
-  icon: React.ComponentType<any>
+  icon: LucideIcon
   badge?: number
   adminOnly?: boolean
   shortcut?: string

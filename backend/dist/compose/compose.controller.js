@@ -16,6 +16,11 @@ exports.ComposeController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const compose_service_1 = require("./compose.service");
+const swagger_1 = require("@nestjs/swagger");
+const error_dto_1 = require("../common/dto/error.dto");
+const success_dto_1 = require("../common/dto/success.dto");
+const mail_message_entity_1 = require("../entities/mail-message.entity");
+const send_mail_dto_1 = require("./dto/send-mail.dto");
 let ComposeController = class ComposeController {
     compose;
     constructor(compose) {
@@ -35,6 +40,7 @@ let ComposeController = class ComposeController {
 exports.ComposeController = ComposeController;
 __decorate([
     (0, common_1.Get)('mails'),
+    (0, swagger_1.ApiOkResponse)({ type: mail_message_entity_1.MailMessage, isArray: true }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)('folder')),
     __param(2, (0, common_1.Query)('limit')),
@@ -45,14 +51,16 @@ __decorate([
 ], ComposeController.prototype, "list", null);
 __decorate([
     (0, common_1.Post)('send'),
+    (0, swagger_1.ApiOkResponse)({ type: mail_message_entity_1.MailMessage }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, send_mail_dto_1.SendMailDto]),
     __metadata("design:returntype", Promise)
 ], ComposeController.prototype, "send", null);
 __decorate([
     (0, common_1.Post)(':id/move'),
+    (0, swagger_1.ApiOkResponse)({ type: success_dto_1.SuccessResponse }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)('folder')),
@@ -62,6 +70,8 @@ __decorate([
 ], ComposeController.prototype, "move", null);
 exports.ComposeController = ComposeController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, swagger_1.ApiTags)('compose'),
+    (0, swagger_1.ApiDefaultResponse)({ type: error_dto_1.ErrorResponse }),
     (0, common_1.Controller)('compose'),
     __metadata("design:paramtypes", [compose_service_1.ComposeService])
 ], ComposeController);

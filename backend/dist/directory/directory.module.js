@@ -13,12 +13,14 @@ const directory_service_1 = require("./directory.service");
 const directory_controller_1 = require("./directory.controller");
 const org_unit_entity_1 = require("../entities/org-unit.entity");
 const user_entity_1 = require("../entities/user.entity");
+const directory_audit_entity_1 = require("../entities/directory-audit.entity");
+const events_module_1 = require("../events/events.module");
 let DirectoryModule = class DirectoryModule {
 };
 exports.DirectoryModule = DirectoryModule;
 exports.DirectoryModule = DirectoryModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([org_unit_entity_1.OrgUnit, user_entity_1.User])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([org_unit_entity_1.OrgUnit, user_entity_1.User, directory_audit_entity_1.DirectoryAudit]), events_module_1.EventsModule],
         providers: [directory_service_1.DirectoryService],
         controllers: [directory_controller_1.DirectoryController],
     })

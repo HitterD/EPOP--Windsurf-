@@ -53,6 +53,7 @@ const user_entity_1 = require("../entities/user.entity");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const argon2 = __importStar(require("argon2"));
+const node_crypto_1 = require("node:crypto");
 let AuthService = class AuthService {
     users;
     jwt;
@@ -71,15 +72,17 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Invalid credentials');
         return user;
     }
-    async signAccessToken(user) {
-        const payload = { sub: user.id, email: user.email, name: user.displayName };
+    async signAccessToken(user, sessionId) {
+        const payload = { sub: user.id, email: user.email, name: user.displayName, sid: sessionId, adm: !!user.isAdmin };
         return this.jwt.signAsync(payload);
     }
-    async signRefreshToken(user) {
+    async signRefreshToken(user, sessionId) {
         const secret = this.config.get('JWT_REFRESH_SECRET');
         const ttl = this.config.get('JWT_REFRESH_TTL') ?? 1209600;
-        const payload = { sub: user.id, typ: 'refresh' };
-        return this.jwt.signAsync(payload, { secret, expiresIn: `${ttl}s` });
+        const jti = (0, node_crypto_1.randomUUID)();
+        const payload = { sub: user.id, typ: 'refresh', sid: sessionId, jti };
+        const token = await this.jwt.signAsync(payload, { secret, expiresIn: `${ttl}s` });
+        return { token, jti };
     }
     async verifyRefreshToken(token) {
         const secret = this.config.get('JWT_REFRESH_SECRET');

@@ -11,9 +11,10 @@ import { OrgTree } from '@/features/directory/components/org-tree'
 import { useDomainEvents } from '@/lib/socket/hooks/use-domain-events'
 import { SOCKET_EVENTS } from '@/lib/constants'
 import { useQueryClient } from '@tanstack/react-query'
-import type { DomainEvent } from '@/types'
+import type { DomainEvent, DirectoryAuditEntry, CursorPaginatedResponse } from '@/types'
 
-function UnitNode({ id, name, members, units }: { id: string; name: string; members: number; units?: any[] }) {
+type UnitStub = { id: string; name: string; members?: unknown[]; children?: UnitStub[] }
+function UnitNode({ id, name, members, units }: { id: string; name: string; members: number; units?: UnitStub[] }) {
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-2 flex items-center justify-between">
@@ -22,8 +23,8 @@ function UnitNode({ id, name, members, units }: { id: string; name: string; memb
       </div>
       {units && units.length > 0 && (
         <div className="ml-4 space-y-2 border-l pl-4">
-          {units.map((u: any) => (
-            <UnitNode key={u.id} id={u.id} name={u.name} members={u.members?.length || 0} units={u.children} />
+          {units.map((u: UnitStub) => (
+            <UnitNode key={u.id} id={u.id} name={u.name} members={(u.members?.length) || 0} units={u.children ?? []} />
           ))}
         </div>
       )}
@@ -43,14 +44,17 @@ export default function DirectoryPage() {
   const dryRun = useBulkImportDryRun()
   const commitImport = useBulkImportCommit()
   const [file, setFile] = useState<File | null>(null)
-  const [dryRunResult, setDryRunResult] = useState<any | null>(null)
+  const [dryRunResult, setDryRunResult] = useState<{ valid: number; invalid: number } | null>(null)
 
-  const isForbidden = useMemo(() => (error as any)?.code === '403', [error])
+  const isForbidden = useMemo(() => {
+    const code = (error && (error as { code?: unknown }).code) as unknown
+    return code === '403'
+  }, [error])
 
   const handleDryRun = async () => {
     if (!file) return
     const result = await dryRun.mutateAsync(file)
-    setDryRunResult(result)
+    setDryRunResult({ valid: result.imported, invalid: result.errors.length })
   }
 
   const handleCommit = async () => {
@@ -61,14 +65,14 @@ export default function DirectoryPage() {
   }
 
   // Listen to directory events and refresh data
-  useDomainEvents<DomainEvent<any>>({
+  useDomainEvents<DomainEvent>({
     eventType: SOCKET_EVENTS.DIRECTORY_UNIT_UPDATED,
     onEvent: (_e) => {
       qc.invalidateQueries({ queryKey: ['org-tree'] })
       qc.invalidateQueries({ queryKey: ['directory-audit'] })
     },
   })
-  useDomainEvents<DomainEvent<any>>({
+  useDomainEvents<DomainEvent>({
     eventType: SOCKET_EVENTS.DIRECTORY_USER_MOVED,
     onEvent: (_e) => {
       qc.invalidateQueries({ queryKey: ['org-tree'] })
@@ -144,7 +148,9 @@ export default function DirectoryPage() {
           <CardContent className="space-y-3 p-4">
             <h2 className="text-lg font-semibold">Audit Log</h2>
             <div className="space-y-2">
-              {(auditPages?.pages || []).flatMap((p: any) => p.items || []).map((e: any) => (
+              {((auditPages?.pages || []) as Array<CursorPaginatedResponse<DirectoryAuditEntry>>)
+                .flatMap((p) => p.items || [])
+                .map((e) => (
                 <div key={e.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
                   <span>{e.action.replace('_', ' ')}</span>
                   <span className="text-muted-foreground">{new Date(e.timestamp).toLocaleString()}</span>

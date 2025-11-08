@@ -68,8 +68,11 @@ export function StatusAnnouncer() {
     // Listen for global status events
     const handleStatusUpdate = (e: CustomEvent) => {
       if (ref.current) {
-        ref.current.textContent = e.detail.message
-        
+        const detail = (e as CustomEvent<{ message?: unknown }>).detail
+        const msg = typeof detail?.message === 'string' ? detail.message : ''
+        if (!msg) return
+        ref.current.textContent = msg
+
         // Clear after 5 seconds
         setTimeout(() => {
           if (ref.current) {
@@ -79,9 +82,10 @@ export function StatusAnnouncer() {
       }
     }
 
-    window.addEventListener('status-update' as any, handleStatusUpdate as EventListener)
+    const listener = (e: Event) => handleStatusUpdate(e as CustomEvent)
+    window.addEventListener('status-update', listener)
     return () => {
-      window.removeEventListener('status-update' as any, handleStatusUpdate as EventListener)
+      window.removeEventListener('status-update', listener)
     }
   }, [])
 
@@ -100,8 +104,10 @@ export function StatusAnnouncer() {
  * Utility to announce status updates
  */
 export function announceStatus(message: string, politeness: 'polite' | 'assertive' = 'polite') {
+  const msg = typeof message === 'string' ? message : ''
+  if (!msg) return
   const event = new CustomEvent('status-update', {
-    detail: { message, politeness },
+    detail: { message: msg, politeness },
   })
   window.dispatchEvent(event)
 }

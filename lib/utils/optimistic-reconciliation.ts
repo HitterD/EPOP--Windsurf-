@@ -11,7 +11,7 @@ export interface OptimisticItem {
   _tempId?: string
   _status?: 'sending' | 'sent' | 'error'
   _error?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**
@@ -42,31 +42,26 @@ export class OptimisticReconciler<T extends OptimisticItem> {
     this.pendingMap.set(tempId, { ...item, _optimistic: true, _status: 'sending' })
 
     // Update query cache
-    queryClient.setQueryData(this.queryKey, (old: any) => {
+    queryClient.setQueryData(this.queryKey, (old: unknown) => {
       if (!old) return old
-
-      // Handle infinite query structure
-      if (old.pages) {
+      if (isInfinite<T>(old)) {
+        const data = old
         return {
-          ...old,
-          pages: old.pages.map((page: any, index: number) => {
-            // Add to first page
+          ...data,
+          pages: data.pages.map((page: InfinitePage<T>, index: number) => {
             if (index === 0) {
               return {
                 ...page,
-                items: [...(page.items || []), { ...item, _optimistic: true }],
+                items: [ ...(page.items || []), { ...item, _optimistic: true } ],
               }
             }
             return page
           }),
         }
       }
-
-      // Handle regular query structure
       if (Array.isArray(old)) {
         return [...old, { ...item, _optimistic: true }]
       }
-
       return old
     })
   }
@@ -83,33 +78,29 @@ export class OptimisticReconciler<T extends OptimisticItem> {
     this.pendingMap.set(tempId, { ...optimisticItem, _status: 'sent' })
 
     // Update query cache - replace temp item with server item
-    queryClient.setQueryData(this.queryKey, (old: any) => {
+    queryClient.setQueryData(this.queryKey, (old: unknown) => {
       if (!old) return old
-
-      // Handle infinite query structure
-      if (old.pages) {
+      if (isInfinite<T>(old)) {
+        const data = old
         return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
+          ...data,
+          pages: data.pages.map((page: InfinitePage<T>) => ({
             ...page,
-            items: (page.items || []).map((item: T) =>
-              item._tempId === tempId || item.id === tempId
-                ? { ...serverItem, _optimistic: false }
-                : item
+            items: (page.items || []).map((it: unknown) =>
+              (it as T)._tempId === tempId || (it as T).id === tempId
+                ? { ...(serverItem as T), _optimistic: false }
+                : (it as T)
             ),
           })),
         }
       }
-
-      // Handle regular query structure
       if (Array.isArray(old)) {
-        return old.map((item: T) =>
-          item._tempId === tempId || item.id === tempId
-            ? { ...serverItem, _optimistic: false }
-            : item
+        return (old as T[]).map((it: T) =>
+          it._tempId === tempId || it.id === tempId
+            ? { ...(serverItem as T), _optimistic: false }
+            : it
         )
       }
-
       return old
     })
 
@@ -130,31 +121,29 @@ export class OptimisticReconciler<T extends OptimisticItem> {
     this.pendingMap.set(tempId, { ...item, _status: 'error', _error: error })
 
     // Update query cache with error status
-    queryClient.setQueryData(this.queryKey, (old: any) => {
+    queryClient.setQueryData(this.queryKey, (old: unknown) => {
       if (!old) return old
-
-      if (old.pages) {
+      if (isInfinite<T>(old)) {
+        const data = old
         return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
+          ...data,
+          pages: data.pages.map((page: InfinitePage<T>) => ({
             ...page,
-            items: (page.items || []).map((item: T) =>
-              item._tempId === tempId || item.id === tempId
-                ? { ...item, _status: 'error', _error: error }
-                : item
+            items: (page.items || []).map((it: unknown) =>
+              (it as T)._tempId === tempId || (it as T).id === tempId
+                ? { ...(it as T), _status: 'error', _error: error }
+                : (it as T)
             ),
           })),
         }
       }
-
       if (Array.isArray(old)) {
-        return old.map((item: T) =>
-          item._tempId === tempId || item.id === tempId
-            ? { ...item, _status: 'error', _error: error }
-            : item
+        return (old as T[]).map((it: T) =>
+          it._tempId === tempId || it.id === tempId
+            ? { ...it, _status: 'error', _error: error }
+            : it
         )
       }
-
       return old
     })
   }
@@ -169,31 +158,29 @@ export class OptimisticReconciler<T extends OptimisticItem> {
     // Reset status to sending
     this.pendingMap.set(tempId, { ...item, _status: 'sending', _error: undefined })
 
-    queryClient.setQueryData(this.queryKey, (old: any) => {
+    queryClient.setQueryData(this.queryKey, (old: unknown) => {
       if (!old) return old
-
-      if (old.pages) {
+      if (isInfinite<T>(old)) {
+        const data = old
         return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
+          ...data,
+          pages: data.pages.map((page: InfinitePage<T>) => ({
             ...page,
-            items: (page.items || []).map((item: T) =>
-              item._tempId === tempId
-                ? { ...item, _status: 'sending', _error: undefined }
-                : item
+            items: (page.items || []).map((it: unknown) =>
+              (it as T)._tempId === tempId
+                ? { ...(it as T), _status: 'sending', _error: undefined }
+                : (it as T)
             ),
           })),
         }
       }
-
       if (Array.isArray(old)) {
-        return old.map((item: T) =>
-          item._tempId === tempId
-            ? { ...item, _status: 'sending', _error: undefined }
-            : item
+        return (old as T[]).map((it: T) =>
+          it._tempId === tempId
+            ? { ...it, _status: 'sending', _error: undefined }
+            : it
         )
       }
-
       return old
     })
 
@@ -219,25 +206,23 @@ export class OptimisticReconciler<T extends OptimisticItem> {
    * Clean up optimistic item from cache
    */
   private cleanup(tempId: string): void {
-    queryClient.setQueryData(this.queryKey, (old: any) => {
+    queryClient.setQueryData(this.queryKey, (old: unknown) => {
       if (!old) return old
-
-      if (old.pages) {
+      if (isInfinite<T>(old)) {
+        const data = old
         return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
+          ...data,
+          pages: data.pages.map((page: InfinitePage<T>) => ({
             ...page,
-            items: (page.items || []).filter(
-              (item: T) => item._tempId !== tempId && item.id !== tempId
+            items: (page.items || []).filter((it: unknown) =>
+              (it as T)._tempId !== tempId && (it as T).id !== tempId
             ),
           })),
         }
       }
-
       if (Array.isArray(old)) {
-        return old.filter((item: T) => item._tempId !== tempId && item.id !== tempId)
+        return (old as T[]).filter((it: T) => it._tempId !== tempId && it.id !== tempId)
       }
-
       return old
     })
   }
@@ -272,4 +257,10 @@ export function useOptimisticReconciler<T extends OptimisticItem>(
 ) {
   const reconciler = new OptimisticReconciler<T>(queryKey)
   return reconciler
+}
+
+type InfinitePage<T> = { items?: T[] } & Record<string, unknown>
+type InfiniteResult<T> = { pages: Array<InfinitePage<T>>; pageParams?: unknown[] } & Record<string, unknown>
+function isInfinite<T>(v: unknown): v is InfiniteResult<T> {
+  return !!v && typeof v === 'object' && 'pages' in (v as Record<string, unknown>) && Array.isArray((v as { pages?: unknown }).pages)
 }
